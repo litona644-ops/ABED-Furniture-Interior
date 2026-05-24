@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Cinzel:wght@400;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Hind Siliguri", "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cinzel", Georgia, serif;
+  --font-outfit: "Outfit", sans-serif;
+}
+
+/* Custom scrollbars and styling */
+body {
+  font-family: var(--font-sans);
+  background-color: #fbfaf6; /* Soft warm wood background */
+}
+
+/* Smooth motion custom easing */
+.transition-smooth {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* premium custom glowing keyframes and utilities */
+@keyframes golden-neon-flow {
+  0%, 100% {
+    border-color: #bf953f;
+    box-shadow: 0 0 15px rgba(191, 149, 63, 0.6), 0 0 25px rgba(191, 149, 63, 0.3), inset 0 0 8px rgba(191, 149, 63, 0.3);
+    filter: drop-shadow(0 0 4px rgba(191, 149, 63, 0.3)) brightness(1.02);
+  }
+  50% {
+    border-color: #ffd700;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 45px rgba(212, 167, 98, 0.6), inset 0 0 18px rgba(255, 215, 0, 0.55);
+    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.65)) brightness(1.1);
+  }
+}
+
+@keyframes logo-shining-sweep {
+  0% {
+    transform: translateX(-150%) rotate(30deg);
+  }
+  20%, 100% {
+    transform: translateX(150%) rotate(30deg);
+  }
+}
+
+@keyframes designer-shining-sweep {
+  0%, 15% {
+    transform: translateX(-150%) rotate(30deg);
+  }
+  35%, 100% {
+    transform: translateX(150%) rotate(30deg);
+  }
+}
+
+@keyframes gradient-move {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes scale-pulse-subtle {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes neon-dot-pulse {
+  0%, 100% {
+    transform: scale(1);
+    background-color: #d4a762;
+    box-shadow: 0 0 6px #d4a762, 0 0 12px #d4a762, 0 0 22px rgba(212, 167, 98, 0.9);
+  }
+  50% {
+    transform: scale(1.35);
+    background-color: #ffd700;
+    box-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700, 0 0 35px rgba(255, 215, 0, 1), 0 0 50px rgba(255, 215, 0, 0.75);
+  }
+}
+
+.animate-neon-dot {
+  animation: neon-dot-pulse 1.8s infinite ease-in-out;
+}
+
+.animate-gradient-loop {
+  background-size: 200% 200%;
+  animation: gradient-move 8s ease infinite;
+}
+
+.animate-pulse-subtle {
+  animation: scale-pulse-subtle 4.5s ease-in-out infinite;
+}
+
+.animate-golden-glow {
+  animation: golden-neon-flow 3.5s infinite ease-in-out;
+}
+
+/* Logo special shining sweep container (Minimal neon, pure lux sweep) */
+.logo-shining-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.logo-shining-container::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.5) 30%,
+    rgba(255, 255, 255, 0.6) 35%,
+    rgba(255, 255, 255, 0.3) 40%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  transform: rotate(30deg);
+  pointer-events: none;
+  animation: logo-shining-sweep 6s infinite ease-in-out;
+}
+
+/* Designer photo staggered sweep (shines shortly after the logo) */
+.shimmer-active {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-active::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.5) 30%,
+    rgba(255, 255, 255, 0.65) 35%,
+    rgba(255, 255, 255, 0.3) 40%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  transform: rotate(30deg);
+  pointer-events: none;
+  animation: designer-shining-sweep 6s infinite ease-in-out;
+}
+
