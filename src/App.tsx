@@ -932,7 +932,7 @@ export default function App() {
 
           {/* WHATSAPP BANNER CONTACT BOX */}
           <motion.a
-            href="https://wa.me/8801931600868"
+            href="https://wa.me/8801816234157"
             target="_blank"
             rel="noopener noreferrer"
             whileHover={{ scale: 1.01 }}
