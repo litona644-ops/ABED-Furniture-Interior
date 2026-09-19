@@ -38,6 +38,21 @@ import { motion, AnimatePresence } from 'motion/react';
 import { PRODUCTS } from './data';
 import { Product, Category } from './types';
 import ProjectStatsChart from './components/ProjectStatsChart';
+import { auth, db } from './lib/firebase';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot, 
+  getDocs 
+} from 'firebase/firestore';
 
 const DEFAULT_SETTINGS = {
   brandNameLeft: 'Abed',
@@ -68,7 +83,7 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showAllProducts, setShowAllProducts] = useState(false);
 
-  // Stats Target Counters
+  // Stats Target Counters - Synced with Firestore
   const [successTarget, setSuccessTarget] = useState<number>(() => {
     const saved = localStorage.getItem('abed_success_target');
     return saved ? parseInt(saved, 10) : 800;
@@ -78,7 +93,7 @@ export default function App() {
     return saved ? parseInt(saved, 10) : 7;
   });
 
-  // Dynamic products list initialized from localStorage if available, or PRODUCTS otherwise
+  // Dynamic products list initialized with local fallback, synced real-time with Cloud Firestore
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('abed_products');
     if (saved) {
@@ -91,7 +106,7 @@ export default function App() {
     return PRODUCTS;
   });
 
-  // Dynamic Site Settings
+  // Dynamic Site Settings - Synced with Firestore
   const [siteSettings, setSiteSettings] = useState(() => {
     const saved = localStorage.getItem('abed_settings');
     if (saved) {
@@ -113,7 +128,91 @@ export default function App() {
     return DEFAULT_SETTINGS;
   });
 
-  // Sync state changes with localStorage
+  // Real-time Firestore sync for products catalog
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'products'),
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const loaded: Product[] = [];
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            loaded.push({
+              id: docSnap.id,
+              nameEn: data.nameEn || '',
+              nameBn: data.nameBn || '',
+              category: (data.category as Category) || 'furniture',
+              imgUrl: data.imgUrl || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
+              priceRangeEn: data.priceRangeEn || '',
+              priceRangeBn: data.priceRangeBn || '',
+              minPrice: typeof data.minPrice === 'number' ? data.minPrice : 10000,
+              descriptionBn: data.descriptionBn || '',
+              descriptionEn: data.descriptionEn || '',
+              specsBn: Array.isArray(data.specsBn) ? data.specsBn : [],
+              specsEn: Array.isArray(data.specsEn) ? data.specsEn : [],
+              isTrending: !!data.isTrending
+            });
+          });
+          setProducts(loaded);
+          localStorage.setItem('abed_products', JSON.stringify(loaded));
+        }
+      },
+      (error) => {
+        console.warn('Firestore products snapshot note:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time Firestore sync for site settings
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, 'site_settings', 'current'),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setSiteSettings((prev: typeof DEFAULT_SETTINGS) => {
+            const merged = { ...prev, ...data };
+            localStorage.setItem('abed_settings', JSON.stringify(merged));
+            return merged;
+          });
+        }
+      },
+      (error) => {
+        console.warn('Firestore site settings snapshot note:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time Firestore sync for project statistics
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, 'project_stats', 'current'),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (typeof data.successTarget === 'number') {
+            setSuccessTarget(data.successTarget);
+            localStorage.setItem('abed_success_target', data.successTarget.toString());
+          }
+          if (typeof data.pendingTarget === 'number') {
+            setPendingTarget(data.pendingTarget);
+            localStorage.setItem('abed_pending_target', data.pendingTarget.toString());
+          }
+        }
+      },
+      (error) => {
+        console.warn('Firestore project stats snapshot note:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Sync state changes with localStorage as offline fallback
   useEffect(() => {
     localStorage.setItem('abed_products', JSON.stringify(products));
   }, [products]);
@@ -138,6 +237,34 @@ export default function App() {
   const [passcodeError, setPasscodeError] = useState(false);
   const [activeAdminTab, setActiveAdminTab] = useState<'products' | 'stats' | 'site_info'>('products');
   const [adminCategoryFilter, setAdminCategoryFilter] = useState<'all' | 'furniture' | 'interior'>('all');
+
+  // Debounced sync for stats changes to Cloud Firestore
+  useEffect(() => {
+    if (isAdminUnlocked) {
+      const timer = setTimeout(() => {
+        setDoc(doc(db, 'project_stats', 'current'), {
+          successTarget,
+          pendingTarget
+        }, { merge: true }).catch((err) => console.warn('Sync stats error:', err));
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [successTarget, pendingTarget, isAdminUnlocked]);
+
+  // Firebase Authentication state listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsAdminUnlocked(true);
+        setPasscodeError(false);
+        if (user.email) setAdminEmail(user.email);
+      } else {
+        setIsAdminUnlocked(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Add Product Form inputs
   const [newProdNameEn, setNewProdNameEn] = useState('');
@@ -177,19 +304,103 @@ export default function App() {
     }, 4000);
   };
 
-  const handleAdminLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminEmail.toLowerCase().trim() === 'litona644@gmail.com' && adminPassword.trim() === 'Alif3730') {
-      setIsAdminUnlocked(true);
-      setPasscodeError(false);
-      showNotification('এডমিন হিসেবে সফলভাবে লগইন হয়েছেন!');
-    } else {
-      setPasscodeError(true);
-      showNotification('ভুল ইমেইল বা পাসওয়ার্ড! সঠিক তথ্য দিয়ে আবার চেষ্টা করুন।', 'error');
+  // Automatic initial data seeding to Firestore if collections are blank
+  const seedFirestoreIfEmpty = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'products'));
+      if (snap.empty) {
+        for (const prod of PRODUCTS) {
+          await setDoc(doc(db, 'products', prod.id), prod);
+        }
+        await setDoc(doc(db, 'site_settings', 'current'), DEFAULT_SETTINGS);
+        await setDoc(doc(db, 'project_stats', 'current'), { successTarget: 800, pendingTarget: 7 });
+      }
+    } catch (e) {
+      console.warn('Initial seeding note:', e);
     }
   };
 
-  const handleProductSubmit = (e: React.FormEvent) => {
+  // Firebase Authentication Admin Login
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = adminEmail.trim();
+    const cleanPassword = adminPassword.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      showNotification('অনুগ্রহ করে সঠিক ইমেইল ও পাসওয়ার্ড প্রদান করুন।', 'error');
+      return;
+    }
+
+    try {
+      await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+      setIsAdminUnlocked(true);
+      setPasscodeError(false);
+      showNotification('এডমিন হিসেবে সফলভাবে ফায়ারবেসে লগইন হয়েছেন!');
+      seedFirestoreIfEmpty();
+    } catch (error: any) {
+      // If user doesn't exist yet on new project, provision the user account
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        try {
+          await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+          setIsAdminUnlocked(true);
+          setPasscodeError(false);
+          showNotification('এডমিন হিসেবে সফলভাবে ফায়ারবেসে একাউন্ট তৈরি ও লগইন হয়েছেন!');
+          seedFirestoreIfEmpty();
+          return;
+        } catch (createErr: any) {
+          console.warn('Signup error:', createErr);
+        }
+      }
+
+      setPasscodeError(true);
+      const errMsg = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential'
+        ? 'ভুল ইমেইল বা পাসওয়ার্ড! সঠিক তথ্য দিয়ে আবার চেষ্টা করুন।'
+        : (error.message || 'লগইন ব্যর্থ হয়েছে। সঠিক তথ্য দিয়ে আবার চেষ্টা করুন।');
+      showNotification(errMsg, 'error');
+    }
+  };
+
+  // Admin Logout
+  const handleAdminLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.error('Sign out error:', e);
+    }
+    setIsAdminUnlocked(false);
+    setAdminEmail('');
+    setAdminPassword('');
+    showNotification('এডমিন প্যানেলটি সুরক্ষিতভাবে লক করে এবং সেশন সাইনআউট শেষ করা হয়েছে!');
+  };
+
+  // Save Site Settings to Cloud Firestore
+  const handleSaveSiteSettings = async () => {
+    try {
+      await setDoc(doc(db, 'site_settings', 'current'), siteSettings, { merge: true });
+      showNotification('কোম্পানি ব্র্যান্ডিং ইনফো সফলভাবে ক্লাউড ফায়ারবেসে সংরক্ষণ ও আপডেট করা হয়েছে!');
+    } catch (err) {
+      console.error('Error saving site settings to Firestore:', err);
+      showNotification('সেটিংস সংরক্ষণে সমস্যা হয়েছে। অনুগ্রহ করে ইন্টারনেট ও অনুমতি যাচাই করুন।', 'error');
+    }
+  };
+
+  // Sync stats directly to Cloud Firestore when adjusted by admin
+  const handleUpdateStats = async (newSuccess: number, newPending: number) => {
+    setSuccessTarget(newSuccess);
+    setPendingTarget(newPending);
+    if (isAdminUnlocked) {
+      try {
+        await setDoc(doc(db, 'project_stats', 'current'), {
+          successTarget: newSuccess,
+          pendingTarget: newPending
+        }, { merge: true });
+      } catch (err) {
+        console.warn('Could not sync stats to Firestore:', err);
+      }
+    }
+  };
+
+  const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newProdNameEn.trim() || !newProdNameBn.trim()) {
@@ -208,33 +419,9 @@ export default function App() {
       : ['100% Solid Wood', 'Elegant High-Gloss Polish'];
 
     if (editingProdId) {
-      // Edit existing product
-      setProducts(prev => prev.map(p => {
-        if (p.id === editingProdId) {
-          return {
-            ...p,
-            nameEn: newProdNameEn,
-            nameBn: newProdNameBn,
-            category: newProdCategory,
-            imgUrl: newProdImgUrl || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
-            priceRangeEn: newProdPriceEn || `৳${minPriceNum.toLocaleString()}+`,
-            priceRangeBn: newProdPriceBn || `${minPriceNum.toLocaleString()} টাকা থেকে শুরু`,
-            minPrice: minPriceNum,
-            descriptionBn: newProdDescBn || 'আকর্ষণীয় ও রাজকীয় ডিজাইনের কাঠের আসবাবপত্র।',
-            descriptionEn: newProdDescEn || 'Elegant luxury wooden furniture masterpiece.',
-            specsBn: specsBnArray,
-            specsEn: specsEnArray,
-            isTrending: newProdIsTrending
-          };
-        }
-        return p;
-      }));
-      showNotification('পণ্যটির তথ্য সফলভাবে আপডেট করা হয়েছে!');
-      setEditingProdId(null);
-    } else {
-      // Create new product
-      const newProduct: Product = {
-        id: `custom-prod-${Date.now()}`,
+      // Edit existing product in Cloud Firestore
+      const updatedProduct: Product = {
+        id: editingProdId,
         nameEn: newProdNameEn,
         nameBn: newProdNameBn,
         category: newProdCategory,
@@ -249,8 +436,44 @@ export default function App() {
         isTrending: newProdIsTrending
       };
 
-      setProducts(prev => [newProduct, ...prev]);
-      showNotification('নতুন পণ্যটি সফলভাবে সংগ্রহশালায় যুক্ত করা হয়েছে!');
+      try {
+        await setDoc(doc(db, 'products', editingProdId), updatedProduct, { merge: true });
+        setProducts(prev => prev.map(p => p.id === editingProdId ? updatedProduct : p));
+        showNotification('পণ্যটির তথ্য সফলভাবে ক্লাউড ফায়ারবেসে আপডেট করা হয়েছে!');
+      } catch (err) {
+        console.error('Error updating product in Firestore:', err);
+        setProducts(prev => prev.map(p => p.id === editingProdId ? updatedProduct : p));
+        showNotification('পণ্যটির তথ্য সফলভাবে আপডেট করা হয়েছে!');
+      }
+      setEditingProdId(null);
+    } else {
+      // Create new product in Cloud Firestore
+      const newId = `custom-prod-${Date.now()}`;
+      const newProduct: Product = {
+        id: newId,
+        nameEn: newProdNameEn,
+        nameBn: newProdNameBn,
+        category: newProdCategory,
+        imgUrl: newProdImgUrl || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
+        priceRangeEn: newProdPriceEn || `৳${minPriceNum.toLocaleString()}+`,
+        priceRangeBn: newProdPriceBn || `${minPriceNum.toLocaleString()} টাকা থেকে শুরু`,
+        minPrice: minPriceNum,
+        descriptionBn: newProdDescBn || 'আকর্ষণীয় ও রাজকীয় ডিজাইনের কাঠের আসবাবপত্র।',
+        descriptionEn: newProdDescEn || 'Elegant luxury wooden furniture masterpiece.',
+        specsBn: specsBnArray,
+        specsEn: specsEnArray,
+        isTrending: newProdIsTrending
+      };
+
+      try {
+        await setDoc(doc(db, 'products', newId), newProduct);
+        setProducts(prev => [newProduct, ...prev]);
+        showNotification('নতুন পণ্যটি সফলভাবে ক্লাউড ফায়ারবেসে যুক্ত করা হয়েছে!');
+      } catch (err) {
+        console.error('Error creating product in Firestore:', err);
+        setProducts(prev => [newProduct, ...prev]);
+        showNotification('নতুন পণ্যটি সফলভাবে সংগ্রহশালায় যুক্ত করা হয়েছে!');
+      }
     }
 
     // Reset Form inputs
@@ -307,8 +530,13 @@ export default function App() {
     showNotification('এডিটিং বাতিল করা হয়েছে।', 'error');
   };
 
-  const deleteProduct = (id: string, nameBn: string) => {
+  const deleteProduct = async (id: string, nameBn: string) => {
     if (window.confirm(`আপনি কি নিশ্চিত যে "${nameBn}" পণ্যটি তালিকা থেকে ডিলিট করতে চান?`)) {
+      try {
+        await deleteDoc(doc(db, 'products', id));
+      } catch (err) {
+        console.error('Error deleting product from Firestore:', err);
+      }
       setProducts(prev => prev.filter(p => p.id !== id));
       showNotification(`"${nameBn}" পণ্যটি সফলভাবে ডিলিট করা হয়েছে!`);
       if (editingProdId === id) {
@@ -317,13 +545,23 @@ export default function App() {
     }
   };
 
-  const resetAllToDefaults = () => {
+  const resetAllToDefaults = async () => {
     if (window.confirm('আপনি কি নিশ্চিত যে সমস্ত কাস্টম ডেটা এবং সেটিংস মুছে ফেলে ডিফল্ট সেটিংসে ফিরে যেতে চান?')) {
       localStorage.removeItem('abed_products');
       localStorage.removeItem('abed_settings');
       localStorage.removeItem('abed_success_target');
       localStorage.removeItem('abed_pending_target');
       
+      try {
+        for (const prod of PRODUCTS) {
+          await setDoc(doc(db, 'products', prod.id), prod);
+        }
+        await setDoc(doc(db, 'site_settings', 'current'), DEFAULT_SETTINGS);
+        await setDoc(doc(db, 'project_stats', 'current'), { successTarget: 800, pendingTarget: 7 });
+      } catch (err) {
+        console.warn('Firestore reset note:', err);
+      }
+
       // Reload states
       setProducts(PRODUCTS);
       setSiteSettings(DEFAULT_SETTINGS);
@@ -1103,12 +1341,7 @@ export default function App() {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsAdminUnlocked(false);
-                      setAdminEmail('');
-                      setAdminPassword('');
-                      showNotification('এডমিন প্যানেলটি সুরক্ষিতভাবে লক করে এবং সেশন সাইনআউট শেষ করা হয়েছে!');
-                    }}
+                    onClick={handleAdminLogout}
                     className="flex items-center gap-1.5 bg-[#d4a762]/10 hover:bg-[#d4a762]/10 text-[#916b2a] px-4 py-2 rounded-xl text-xs font-black border border-[#d4a762]/35 transition-all cursor-pointer"
                   >
                     <Lock className="w-3.5 h-3.5" />
@@ -1928,9 +2161,7 @@ export default function App() {
                       <div className="flex justify-end">
                         <button
                           type="button"
-                          onClick={() => {
-                            showNotification('কোম্পানি ব্র্যান্ডিং ইনফো সফলভাবে কাস্টমাইজ ও আপডেট করা হয়েছে!');
-                          }}
+                          onClick={handleSaveSiteSettings}
                           className="bg-[#d4a762] hover:bg-[#ffe082] text-stone-950 px-6.5 py-3 rounded-xl font-black text-xs transition-colors tracking-wide flex items-center gap-1.5 cursor-pointer hover:scale-102 active:scale-98 duration-102"
                         >
                           <Save className="w-4 h-4 shrink-0" />

@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Furniture or interior design product catalog item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "nameBn": { "type": "string" },
+        "category": { "type": "string", "enum": ["furniture", "interior"] },
+        "imageUrl": { "type": "string" },
+        "priceEn": { "type": "string" },
+        "priceBn": { "type": "string" },
+        "minPrice": { "type": "number" },
+        "descriptionBn": { "type": "string" },
+        "descriptionEn": { "type": "string" },
+        "specsBn": { "type": "string" },
+        "specsEn": { "type": "string" },
+        "isTrending": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "nameEn", "nameBn", "category", "imageUrl", "priceEn", "priceBn", "minPrice", "descriptionBn", "descriptionEn", "specsBn", "specsEn", "isTrending"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Dynamic website content, contacts, and designer details",
+      "type": "object",
+      "properties": {
+        "brandNameLeft": { "type": "string" },
+        "brandNameRight": { "type": "string" },
+        "tagline": { "type": "string" },
+        "heroBadge": { "type": "string" },
+        "heroTitleBn1": { "type": "string" },
+        "heroTitleBn2": { "type": "string" },
+        "heroDescBn": { "type": "string" },
+        "showroomAddress": { "type": "string" },
+        "showroomHours": { "type": "string" },
+        "phone1": { "type": "string" },
+        "phone2": { "type": "string" },
+        "phone3": { "type": "string" },
+        "designerName": { "type": "string" },
+        "designerTitle": { "type": "string" },
+        "designerDesc1": { "type": "string" },
+        "designerDesc2": { "type": "string" },
+        "designerExpText": { "type": "string" },
+        "designerDubaiText": { "type": "string" }
+      },
+      "required": ["brandNameLeft", "brandNameRight", "tagline", "heroBadge", "heroTitleBn1", "heroTitleBn2", "heroDescBn", "showroomAddress", "showroomHours", "phone1", "phone2", "phone3", "designerName", "designerTitle"]
+    },
+    "ProjectStats": {
+      "title": "ProjectStats",
+      "description": "Targets and milestones for project statistics chart",
+      "type": "object",
+      "properties": {
+        "successTarget": { "type": "number" },
+        "pendingTarget": { "type": "number" }
+      },
+      "required": ["successTarget", "pendingTarget"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of furniture and interior products"
+    },
+    "/site_settings/{settingsId}": {
+      "schema": "SiteSettings",
+      "description": "Website customizable content and settings"
+    },
+    "/project_stats/{statsId}": {
+      "schema": "ProjectStats",
+      "description": "Customizable project success and pending targets"
+    }
+  }
+}
