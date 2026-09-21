@@ -18,6 +18,7 @@
         "specsBn": { "type": "string" },
         "specsEn": { "type": "string" },
         "isTrending": { "type": "boolean" },
+        "images": { "type": "string", "description": "Optional list or JSON of additional product image URLs" },
         "createdAt": { "type": "number" }
       },
       "required": ["id", "nameEn", "nameBn", "category", "imageUrl", "priceEn", "priceBn", "minPrice", "descriptionBn", "descriptionEn", "specsBn", "specsEn", "isTrending"]
@@ -57,6 +58,27 @@
         "pendingTarget": { "type": "number" }
       },
       "required": ["successTarget", "pendingTarget"]
+    },
+    "CompletedProject": {
+      "title": "CompletedProject",
+      "description": "Completed and handed-over customer projects with photos and videos",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "titleEn": { "type": "string" },
+        "category": { "type": "string", "enum": ["furniture", "interior", "full_project"] },
+        "clientLocation": { "type": "string" },
+        "completionDate": { "type": "string" },
+        "description": { "type": "string" },
+        "descriptionEn": { "type": "string" },
+        "coverImage": { "type": "string" },
+        "photos": { "type": "string", "description": "Array or JSON list of photo URLs" },
+        "videos": { "type": "string", "description": "Array or JSON list of video URLs" },
+        "clientName": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "title", "description", "category", "clientLocation", "completionDate"]
     }
   },
   "firestore": {
@@ -71,6 +93,10 @@
     "/project_stats/{statsId}": {
       "schema": "ProjectStats",
       "description": "Customizable project success and pending targets"
+    },
+    "/completed_projects/{projectId}": {
+      "schema": "CompletedProject",
+      "description": "Handed over and completed customer projects"
     }
   }
 }

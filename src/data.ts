@@ -1,4 +1,4 @@
-import { Product, Review } from './types';
+import { Product, Review, CompletedProject } from './types';
 
 export const PRODUCTS: Product[] = [
   {
@@ -332,3 +332,7 @@ export const TRANSLATIONS = {
     addToInquiryList: 'Add Recommended Items to Inquiry Bag'
   }
 };
+
+export const DEFAULT_COMPLETED_PROJECTS: CompletedProject[] = [];
+
+

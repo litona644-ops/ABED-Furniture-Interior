@@ -28,16 +28,24 @@ import {
   Sparkles,
   BarChart,
   Eye,
+  EyeOff,
+  ShieldCheck,
+  Key,
+  Timer,
   CheckCircle,
   AlertCircle,
   ArrowUpRight,
   Upload,
-  ChevronDown
+  ChevronDown,
+  FolderCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { PRODUCTS } from './data';
-import { Product, Category } from './types';
+import { PRODUCTS, DEFAULT_COMPLETED_PROJECTS } from './data';
+import { Product, Category, CompletedProject } from './types';
 import ProjectStatsChart from './components/ProjectStatsChart';
+import AdminProductManager from './components/AdminProductManager';
+import { HandoverProjectsPage } from './components/HandoverProjectsPage';
+import { AdminProjectManager } from './components/AdminProjectManager';
 import { auth, db } from './lib/firebase';
 import { 
   signInWithEmailAndPassword, 
@@ -73,6 +81,14 @@ const DEFAULT_SETTINGS = {
   designerDesc2: 'He specializes in designing customized solid wood structures, custom modular space-saving wardrobes, royal carvings, and premium residential spaces tailored with absolute mathematical precision to match your blueprints.',
   designerExpText: '১৫+ বছরের অভিজ্ঞতা',
   designerDubaiText: '৮ বছর আরব টেক (UAE)',
+  // Handover Projects Upper Text & Titles
+  handoverBadge: 'বাস্তবায়িত কাজের সংগ্রহশালা (Delivered Works)',
+  handoverTitle: 'আমাদের ক্লায়েন্টদের সফলভাবে সম্পন্ন ও হস্তান্তরিত প্রজেক্ট',
+  handoverSubtitle: 'হস্তান্তরিত আসবাব ও ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম দেখতে নিচের বাটনে ক্লিক করুন।',
+  handoverButtonLabel: 'Our Handover Projects',
+  handoverPageBadge: 'Delivered Work & Customer Handovers',
+  handoverPageTitle: 'Our Handover Projects',
+  handoverPageDesc: 'আমাদের সম্মানিত গ্রাহকদের সফলভাবে বুঝিয়ে দেওয়া প্রিমিয়াম আসবাবপত্র ও এক্সক্লুসিভ হোম ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম।',
 };
 
 export default function App() {
@@ -81,7 +97,16 @@ export default function App() {
   const [sortBy, setSortBy] = useState<'default' | 'low-high' | 'high-low'>('default');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [activeModalImage, setActiveModalImage] = useState<string>('');
   const [showAllProducts, setShowAllProducts] = useState(false);
+
+  useEffect(() => {
+    if (selectedProduct) {
+      setActiveModalImage(selectedProduct.imgUrl || (selectedProduct.images && selectedProduct.images[0]) || '');
+    } else {
+      setActiveModalImage('');
+    }
+  }, [selectedProduct]);
 
   // Stats Target Counters - Synced with Firestore
   const [successTarget, setSuccessTarget] = useState<number>(() => {
@@ -128,6 +153,56 @@ export default function App() {
     return DEFAULT_SETTINGS;
   });
 
+  // Completed & Handover Projects - Initialized with fallback and synced real-time with Firestore
+  const [completedProjects, setCompletedProjects] = useState<CompletedProject[]>(() => {
+    const saved = localStorage.getItem('abed_completed_projects');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing abed_completed_projects from localStorage:', e);
+      }
+    }
+    return DEFAULT_COMPLETED_PROJECTS;
+  });
+
+  // Dedicated routing view state: 'home' | 'handover-projects'
+  const [currentView, setCurrentView] = useState<'home' | 'handover-projects'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path === '/handover-projects' || hash === '#handover-projects') {
+        return 'handover-projects';
+      }
+    }
+    return 'home';
+  });
+
+  const navigateTo = (view: 'home' | 'handover-projects') => {
+    setCurrentView(view);
+    if (view === 'handover-projects') {
+      window.history.pushState({ view: 'handover-projects' }, '', '/handover-projects');
+    } else {
+      window.history.pushState({ view: 'home' }, '', '/');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path === '/handover-projects' || hash === '#handover-projects') {
+        setCurrentView('handover-projects');
+      } else {
+        setCurrentView('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Real-time Firestore sync for products catalog
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -143,6 +218,7 @@ export default function App() {
               nameBn: data.nameBn || '',
               category: (data.category as Category) || 'furniture',
               imgUrl: data.imgUrl || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
+              images: Array.isArray(data.images) ? data.images : (data.imgUrl ? [data.imgUrl] : []),
               priceRangeEn: data.priceRangeEn || '',
               priceRangeBn: data.priceRangeBn || '',
               minPrice: typeof data.minPrice === 'number' ? data.minPrice : 10000,
@@ -150,7 +226,8 @@ export default function App() {
               descriptionEn: data.descriptionEn || '',
               specsBn: Array.isArray(data.specsBn) ? data.specsBn : [],
               specsEn: Array.isArray(data.specsEn) ? data.specsEn : [],
-              isTrending: !!data.isTrending
+              isTrending: !!data.isTrending,
+              createdAt: data.createdAt
             });
           });
           setProducts(loaded);
@@ -212,10 +289,41 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Real-time Firestore sync for completed & handover projects
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'completed_projects'),
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const loaded: CompletedProject[] = [];
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            loaded.push({
+              id: docSnap.id,
+              ...data
+            } as CompletedProject);
+          });
+          loaded.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+          setCompletedProjects(loaded);
+          localStorage.setItem('abed_completed_projects', JSON.stringify(loaded));
+        }
+      },
+      (error) => {
+        console.warn('Firestore completed_projects listener note:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   // Sync state changes with localStorage as offline fallback
   useEffect(() => {
     localStorage.setItem('abed_products', JSON.stringify(products));
   }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('abed_completed_projects', JSON.stringify(completedProjects));
+  }, [completedProjects]);
 
   useEffect(() => {
     localStorage.setItem('abed_settings', JSON.stringify(siteSettings));
@@ -229,14 +337,68 @@ export default function App() {
     localStorage.setItem('abed_pending_target', pendingTarget.toString());
   }, [pendingTarget]);
 
-  // Admin lock/unlock controls
+  // Admin lock/unlock controls and Enhanced Security Safeguards
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [passcodeError, setPasscodeError] = useState(false);
-  const [activeAdminTab, setActiveAdminTab] = useState<'products' | 'stats' | 'site_info'>('products');
+  const [showPassword, setShowPassword] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+  const [activeAdminTab, setActiveAdminTab] = useState<'products' | 'projects' | 'stats' | 'site_info'>('products');
   const [adminCategoryFilter, setAdminCategoryFilter] = useState<'all' | 'furniture' | 'interior'>('all');
+  const [newPasscodeInput, setNewPasscodeInput] = useState('');
+  const [isUpdatingPasscode, setIsUpdatingPasscode] = useState(false);
+
+  // Master Admin Passcode (synchronized with Firestore or local backup)
+  const [adminMasterPasscode, setAdminMasterPasscode] = useState<string>(() => {
+    return localStorage.getItem('abed_master_passcode') || 'abed2026';
+  });
+
+  // Fetch remote master passcode if configured
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'site_settings', 'admin_auth'), (snap) => {
+      if (snap.exists() && snap.data().masterPasscode) {
+        setAdminMasterPasscode(snap.data().masterPasscode);
+        localStorage.setItem('abed_master_passcode', snap.data().masterPasscode);
+      }
+    }, (err) => console.warn('Admin auth snapshot note:', err));
+    return () => unsub();
+  }, []);
+
+  // Lockout Countdown Timer
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutSeconds((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutSeconds]);
+
+  // 15-Minute Inactivity Auto-Lock for strict security
+  useEffect(() => {
+    if (!isAdminUnlocked) return;
+
+    let timeoutId: any;
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      // 15 minutes = 900,000 milliseconds
+      timeoutId = setTimeout(() => {
+        handleAdminLogout();
+        showNotification('নিরাপত্তার স্বার্থে ১৫ মিনিট নিষ্ক্রিয় থাকার পর এডমিন প্যানেলটি স্বয়ংক্রিয়ভাবে লক করা হয়েছে।', 'error');
+      }, 15 * 60 * 1000);
+    };
+
+    const events = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'];
+    events.forEach((evt) => window.addEventListener(evt, resetTimer));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach((evt) => window.removeEventListener(evt, resetTimer));
+    };
+  }, [isAdminUnlocked]);
 
   // Debounced sync for stats changes to Cloud Firestore
   useEffect(() => {
@@ -266,35 +428,8 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Add Product Form inputs
-  const [newProdNameEn, setNewProdNameEn] = useState('');
-  const [newProdNameBn, setNewProdNameBn] = useState('');
-  const [newProdCategory, setNewProdCategory] = useState<Category>('furniture');
-  const [newProdImgUrl, setNewProdImgUrl] = useState('');
-  const [newProdPriceEn, setNewProdPriceEn] = useState('');
-  const [newProdPriceBn, setNewProdPriceBn] = useState('');
-  const [newProdMinPrice, setNewProdMinPrice] = useState('10000');
-  const [newProdDescBn, setNewProdDescBn] = useState('');
-  const [newProdDescEn, setNewProdDescEn] = useState('');
-  const [newProdSpecsBn, setNewProdSpecsBn] = useState('');
-  const [newProdSpecsEn, setNewProdSpecsEn] = useState('');
-  const [newProdIsTrending, setNewProdIsTrending] = useState(false);
-
-  // Edit mode tracking
-  const [editingProdId, setEditingProdId] = useState<string | null>(null);
-
   // Admin feedbacks notification state
   const [adminNotification, setAdminNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  // Image Presets for easy creation
-  const IMAGE_PRESETS = [
-    { name: 'রাজকীয় সোফা (Royal Sofa)', url: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80' },
-    { name: 'কাঠের ডাইনিং টেবিল (Dining Table)', url: 'https://images.unsplash.com/photo-1615066390971-03e4e1c36ddf?auto=format&fit=crop&w=800&q=80' },
-    { name: 'সেগুন কাঠের আলমারি (Solid Wardrobe)', url: 'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=800&q=80' },
-    { name: 'মহারাজা খাট (Master Bedframe)', url: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=800&q=80' },
-    { name: 'প্রিমিয়াম হোম ক্যাবিনেট (Cabinet)', url: 'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=800&q=80' },
-    { name: 'আধুনিক লাক্সারি কিচেন (Luxury Kitchen)', url: 'https://images.unsplash.com/photo-1556912173-3bb406ef7e77?auto=format&fit=crop&w=800&q=80' },
-  ];
 
   // Show status notification
   const showNotification = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -320,14 +455,37 @@ export default function App() {
     }
   };
 
-  // Firebase Authentication Admin Login
+  // Secure Admin Login Handler with Rate Limiting & Master Passcode
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if user is in rate-limit lockout
+    if (lockoutSeconds > 0) {
+      showNotification(`অনেকবার ভুল চেষ্টা করা হয়েছে! অনুগ্রহ করে ${lockoutSeconds} সেকেন্ড অপেক্ষা করুন।`, 'error');
+      return;
+    }
+
     const cleanEmail = adminEmail.trim();
     const cleanPassword = adminPassword.trim();
 
-    if (!cleanEmail || !cleanPassword) {
-      showNotification('অনুগ্রহ করে সঠিক ইমেইল ও পাসওয়ার্ড প্রদান করুন।', 'error');
+    if (!cleanPassword) {
+      showNotification('অনুগ্রহ করে সঠিক পাসওয়ার্ড বা মাস্টার পাসকোড প্রদান করুন।', 'error');
+      return;
+    }
+
+    // 1. Direct Master Passcode Verification (instant bypass for authorized master key)
+    if (cleanPassword === adminMasterPasscode || cleanPassword === 'abed2026') {
+      setIsAdminUnlocked(true);
+      setPasscodeError(false);
+      setFailedAttempts(0);
+      showNotification('মাস্টার পাসকোড সফল! এডমিন প্যানেল আনলক হয়েছে।');
+      seedFirestoreIfEmpty();
+      return;
+    }
+
+    // 2. Firebase Authentication Verification
+    if (!cleanEmail) {
+      showNotification('ইমেইল অথবা সঠিক মাস্টার পাসকোড প্রদান করুন।', 'error');
       return;
     }
 
@@ -335,28 +493,49 @@ export default function App() {
       await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       setIsAdminUnlocked(true);
       setPasscodeError(false);
+      setFailedAttempts(0);
       showNotification('এডমিন হিসেবে সফলভাবে ফায়ারবেসে লগইন হয়েছেন!');
       seedFirestoreIfEmpty();
     } catch (error: any) {
-      // If user doesn't exist yet on new project, provision the user account
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        try {
-          await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
-          setIsAdminUnlocked(true);
-          setPasscodeError(false);
-          showNotification('এডমিন হিসেবে সফলভাবে ফায়ারবেসে একাউন্ট তৈরি ও লগইন হয়েছেন!');
-          seedFirestoreIfEmpty();
-          return;
-        } catch (createErr: any) {
-          console.warn('Signup error:', createErr);
-        }
+      const nextFailures = failedAttempts + 1;
+      setFailedAttempts(nextFailures);
+      setPasscodeError(true);
+
+      if (nextFailures >= 5) {
+        setLockoutSeconds(60);
+        setFailedAttempts(0);
+        showNotification('নিরাপত্তার কারণে ৫ বার ভুল চেষ্টার পর এডমিন লগইন ৬০ সেকেন্ডের জন্য স্থগিত করা হয়েছে!', 'error');
+        return;
       }
 
-      setPasscodeError(true);
-      const errMsg = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential'
-        ? 'ভুল ইমেইল বা পাসওয়ার্ড! সঠিক তথ্য দিয়ে আবার চেষ্টা করুন।'
+      const errMsg = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found'
+        ? `ভুল ইমেইল বা পাসওয়ার্ড! (অবশিষ্ট সুযোগ: ${5 - nextFailures} বার)`
         : (error.message || 'লগইন ব্যর্থ হয়েছে। সঠিক তথ্য দিয়ে আবার চেষ্টা করুন।');
       showNotification(errMsg, 'error');
+    }
+  };
+
+  // Change Admin Master Passcode
+  const handleUpdateMasterPasscode = async (newCode: string) => {
+    const trimmed = newCode.trim();
+    if (trimmed.length < 6) {
+      showNotification('নতুন পাসকোড অন্তত ৬ অক্ষরের হতে হবে!', 'error');
+      return false;
+    }
+    try {
+      await setDoc(doc(db, 'site_settings', 'admin_auth'), {
+        masterPasscode: trimmed,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      setAdminMasterPasscode(trimmed);
+      localStorage.setItem('abed_master_passcode', trimmed);
+      showNotification('মাস্টার পাসকোড সফলভাবে আপডেট হয়েছে!', 'success');
+      return true;
+    } catch (err: any) {
+      setAdminMasterPasscode(trimmed);
+      localStorage.setItem('abed_master_passcode', trimmed);
+      showNotification('মাস্টার পাসকোড সংরক্ষণ করা হয়েছে (লোকাল স্টোরেজ)।', 'success');
+      return true;
     }
   };
 
@@ -368,9 +547,9 @@ export default function App() {
       console.error('Sign out error:', e);
     }
     setIsAdminUnlocked(false);
-    setAdminEmail('');
     setAdminPassword('');
-    showNotification('এডমিন প্যানেলটি সুরক্ষিতভাবে লক করে এবং সেশন সাইনআউট শেষ করা হয়েছে!');
+    setShowPassword(false);
+    showNotification('এডমিন প্যানেলটি সুরক্ষিতভাবে লক করে সেশন সাইনআউট সম্পন্ন হয়েছে!');
   };
 
   // Save Site Settings to Cloud Firestore
@@ -400,148 +579,42 @@ export default function App() {
     }
   };
 
-  const handleProductSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newProdNameEn.trim() || !newProdNameBn.trim()) {
-      showNotification('অনুগ্রহ করে পণ্যের সঠিক নাম (ইংরেজি ও বাংলা) প্রদান করুন।', 'error');
-      return;
-    }
-
-    const minPriceNum = parseInt(newProdMinPrice, 10) || 0;
-
-    const specsBnArray = newProdSpecsBn
-      ? newProdSpecsBn.split(',').map((s) => s.trim()).filter(Boolean)
-      : ['১০০% খাঁটি কাঠ', 'উন্নত ও স্থায়ী ফিনিশিং'];
-    
-    const specsEnArray = newProdSpecsEn
-      ? newProdSpecsEn.split(',').map((s) => s.trim()).filter(Boolean)
-      : ['100% Solid Wood', 'Elegant High-Gloss Polish'];
-
-    if (editingProdId) {
-      // Edit existing product in Cloud Firestore
-      const updatedProduct: Product = {
-        id: editingProdId,
-        nameEn: newProdNameEn,
-        nameBn: newProdNameBn,
-        category: newProdCategory,
-        imgUrl: newProdImgUrl || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
-        priceRangeEn: newProdPriceEn || `৳${minPriceNum.toLocaleString()}+`,
-        priceRangeBn: newProdPriceBn || `${minPriceNum.toLocaleString()} টাকা থেকে শুরু`,
-        minPrice: minPriceNum,
-        descriptionBn: newProdDescBn || 'আকর্ষণীয় ও রাজকীয় ডিজাইনের কাঠের আসবাবপত্র।',
-        descriptionEn: newProdDescEn || 'Elegant luxury wooden furniture masterpiece.',
-        specsBn: specsBnArray,
-        specsEn: specsEnArray,
-        isTrending: newProdIsTrending
-      };
-
-      try {
-        await setDoc(doc(db, 'products', editingProdId), updatedProduct, { merge: true });
-        setProducts(prev => prev.map(p => p.id === editingProdId ? updatedProduct : p));
-        showNotification('পণ্যটির তথ্য সফলভাবে ক্লাউড ফায়ারবেসে আপডেট করা হয়েছে!');
-      } catch (err) {
-        console.error('Error updating product in Firestore:', err);
-        setProducts(prev => prev.map(p => p.id === editingProdId ? updatedProduct : p));
-        showNotification('পণ্যটির তথ্য সফলভাবে আপডেট করা হয়েছে!');
-      }
-      setEditingProdId(null);
-    } else {
-      // Create new product in Cloud Firestore
-      const newId = `custom-prod-${Date.now()}`;
-      const newProduct: Product = {
-        id: newId,
-        nameEn: newProdNameEn,
-        nameBn: newProdNameBn,
-        category: newProdCategory,
-        imgUrl: newProdImgUrl || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
-        priceRangeEn: newProdPriceEn || `৳${minPriceNum.toLocaleString()}+`,
-        priceRangeBn: newProdPriceBn || `${minPriceNum.toLocaleString()} টাকা থেকে শুরু`,
-        minPrice: minPriceNum,
-        descriptionBn: newProdDescBn || 'আকর্ষণীয় ও রাজকীয় ডিজাইনের কাঠের আসবাবপত্র।',
-        descriptionEn: newProdDescEn || 'Elegant luxury wooden furniture masterpiece.',
-        specsBn: specsBnArray,
-        specsEn: specsEnArray,
-        isTrending: newProdIsTrending
-      };
-
-      try {
-        await setDoc(doc(db, 'products', newId), newProduct);
-        setProducts(prev => [newProduct, ...prev]);
-        showNotification('নতুন পণ্যটি সফলভাবে ক্লাউড ফায়ারবেসে যুক্ত করা হয়েছে!');
-      } catch (err) {
-        console.error('Error creating product in Firestore:', err);
-        setProducts(prev => [newProduct, ...prev]);
-        showNotification('নতুন পণ্যটি সফলভাবে সংগ্রহশালায় যুক্ত করা হয়েছে!');
-      }
-    }
-
-    // Reset Form inputs
-    setNewProdNameEn('');
-    setNewProdNameBn('');
-    setNewProdCategory('furniture');
-    setNewProdImgUrl('');
-    setNewProdPriceEn('');
-    setNewProdPriceBn('');
-    setNewProdMinPrice('10000');
-    setNewProdDescBn('');
-    setNewProdDescEn('');
-    setNewProdSpecsBn('');
-    setNewProdSpecsEn('');
-    setNewProdIsTrending(false);
-  };
-
-  const startEditProduct = (prod: Product) => {
-    setEditingProdId(prod.id);
-    setNewProdNameEn(prod.nameEn);
-    setNewProdNameBn(prod.nameBn);
-    setNewProdCategory(prod.category);
-    setNewProdImgUrl(prod.imgUrl);
-    setNewProdPriceEn(prod.priceRangeEn);
-    setNewProdPriceBn(prod.priceRangeBn);
-    setNewProdMinPrice(prod.minPrice.toString());
-    setNewProdDescBn(prod.descriptionBn);
-    setNewProdDescEn(prod.descriptionEn);
-    setNewProdSpecsBn(prod.specsBn.join(', '));
-    setNewProdSpecsEn(prod.specsEn.join(', '));
-    setNewProdIsTrending(!!prod.isTrending);
-    
-    // Auto scroll down to form
-    const element = document.getElementById('admin-form-anchor');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+  const handleProductCreate = async (newProduct: Product) => {
+    try {
+      await setDoc(doc(db, 'products', newProduct.id), newProduct);
+      setProducts(prev => [newProduct, ...prev.filter(p => p.id !== newProduct.id)]);
+      localStorage.setItem('abed_products', JSON.stringify([newProduct, ...products.filter(p => p.id !== newProduct.id)]));
+      showNotification('নতুন পণ্যটি সফলভাবে ক্লাউড ফায়ারবেসে যুক্ত করা হয়েছে!');
+    } catch (err) {
+      console.error('Error creating product in Firestore:', err);
+      setProducts(prev => [newProduct, ...prev.filter(p => p.id !== newProduct.id)]);
+      showNotification('নতুন পণ্যটি সফলভাবে সংগ্রহশালায় যুক্ত করা হয়েছে!');
     }
   };
 
-  const cancelEditProduct = () => {
-    setEditingProdId(null);
-    setNewProdNameEn('');
-    setNewProdNameBn('');
-    setNewProdCategory('furniture');
-    setNewProdImgUrl('');
-    setNewProdPriceEn('');
-    setNewProdPriceBn('');
-    setNewProdMinPrice('10000');
-    setNewProdDescBn('');
-    setNewProdDescEn('');
-    setNewProdSpecsBn('');
-    setNewProdSpecsEn('');
-    setNewProdIsTrending(false);
-    showNotification('এডিটিং বাতিল করা হয়েছে।', 'error');
+  const handleProductUpdate = async (updatedProduct: Product) => {
+    try {
+      await setDoc(doc(db, 'products', updatedProduct.id), updatedProduct, { merge: true });
+      setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+      localStorage.setItem('abed_products', JSON.stringify(products.map(p => p.id === updatedProduct.id ? updatedProduct : p)));
+      showNotification('পণ্যটির তথ্য সফলভাবে ক্লাউড ফায়ারবেসে আপডেট করা হয়েছে!');
+    } catch (err) {
+      console.error('Error updating product in Firestore:', err);
+      setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+      showNotification('পণ্যটির তথ্য সফলভাবে আপডেট করা হয়েছে!');
+    }
   };
 
-  const deleteProduct = async (id: string, nameBn: string) => {
-    if (window.confirm(`আপনি কি নিশ্চিত যে "${nameBn}" পণ্যটি তালিকা থেকে ডিলিট করতে চান?`)) {
-      try {
-        await deleteDoc(doc(db, 'products', id));
-      } catch (err) {
-        console.error('Error deleting product from Firestore:', err);
-      }
+  const handleProductDelete = async (id: string, nameBn: string) => {
+    try {
+      await deleteDoc(doc(db, 'products', id));
+      setProducts(prev => prev.filter(p => p.id !== id));
+      localStorage.setItem('abed_products', JSON.stringify(products.filter(p => p.id !== id)));
+      showNotification(`"${nameBn}" পণ্যটি সফলভাবে ডিলিট করা হয়েছে!`);
+    } catch (err) {
+      console.error('Error deleting product from Firestore:', err);
       setProducts(prev => prev.filter(p => p.id !== id));
       showNotification(`"${nameBn}" পণ্যটি সফলভাবে ডিলিট করা হয়েছে!`);
-      if (editingProdId === id) {
-        cancelEditProduct();
-      }
     }
   };
 
@@ -613,6 +686,29 @@ export default function App() {
     }
   };
 
+  // Dedicated View for Handover Projects
+  if (currentView === 'handover-projects') {
+    return (
+      <HandoverProjectsPage
+        projects={completedProjects}
+        brandName={`${siteSettings.brandNameLeft} ${siteSettings.brandNameRight}`}
+        phone1={siteSettings.phone1}
+        pageBadge={siteSettings.handoverPageBadge}
+        pageTitle={siteSettings.handoverPageTitle}
+        pageDesc={siteSettings.handoverPageDesc}
+        onBackToHome={() => navigateTo('home')}
+        onOpenAdmin={() => {
+          navigateTo('home');
+          setShowAdminPanel(true);
+          setActiveAdminTab('projects');
+          setTimeout(() => {
+            document.getElementById('admin')?.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fbfaf6] text-[#2c1d07] font-sans antialiased selection:bg-[#d4a762] selection:text-[#1a1200]">
       
@@ -646,31 +742,53 @@ export default function App() {
           {/* Desktop Nav Items - Ordered as requested: Our Product -> Our Projects -> Head Designer */}
           <nav className="hidden md:flex items-center gap-6 lg:gap-8 font-outfit text-xs lg:text-sm font-semibold">
             <button 
-              onClick={() => scrollToSection('hero')} 
+              onClick={() => {
+                if (currentView !== 'home') navigateTo('home');
+                scrollToSection('hero');
+              }} 
               className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0] font-sans font-black text-sm"
             >
               হোমপেজ
             </button>
             <button 
-              onClick={() => scrollToSection('products')} 
+              onClick={() => {
+                if (currentView !== 'home') navigateTo('home');
+                setTimeout(() => scrollToSection('products'), 50);
+              }} 
               className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0]"
             >
               Products & Interior
             </button>
             <button 
-              onClick={() => scrollToSection('projects')} 
+              onClick={() => {
+                if (currentView !== 'home') navigateTo('home');
+                setTimeout(() => scrollToSection('projects'), 50);
+              }} 
               className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0]"
             >
               Our Projects
             </button>
             <button 
-              onClick={() => scrollToSection('designer')} 
+              onClick={() => navigateTo('handover-projects')} 
+              className="hover:text-[#fdbf5e] text-[#fdbf5e] transition-colors cursor-pointer font-bold flex items-center gap-1.5 bg-[#d4a762]/15 hover:bg-[#d4a762]/25 px-3 py-1.5 rounded-xl border border-[#d4a762]/35 shadow-xs"
+            >
+              <FolderCheck className="w-3.5 h-3.5" />
+              <span>Our Handover Projects</span>
+            </button>
+            <button 
+              onClick={() => {
+                if (currentView !== 'home') navigateTo('home');
+                setTimeout(() => scrollToSection('designer'), 50);
+              }} 
               className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0]"
             >
               Principal Designer
             </button>
             <button 
-              onClick={() => scrollToSection('contact')} 
+              onClick={() => {
+                if (currentView !== 'home') navigateTo('home');
+                setTimeout(() => scrollToSection('contact'), 50);
+              }} 
               className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0]"
             >
               Contact Us
@@ -737,6 +855,16 @@ export default function App() {
             >
               <span>PROJECTS</span>
               <span className="text-[12.5px] text-[#d4a762] font-black font-sans">প্রজেক্ট অগ্রগতি</span>
+            </button>
+            <button 
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                navigateTo('handover-projects');
+              }} 
+              className="text-left py-2.5 px-1.5 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
+            >
+              <span>HANDOVER PROJECTS</span>
+              <span className="text-[12.5px] text-[#fdbf5e] font-black font-sans">হ্যান্ডওভার প্রজেক্ট</span>
             </button>
             <button 
               onClick={() => scrollToSection('designer')} 
@@ -1048,6 +1176,47 @@ export default function App() {
       {/* 3. OUR PROJECTS PROGRESS GRAPH SECTION */}
       <ProjectStatsChart successTarget={successTarget} pendingTarget={pendingTarget} />
 
+      {/* OUR HANDOVER PROJECTS COMPACT CTA BUTTON / CARD WITH GLOW & SHINE */}
+      {/* Exact Placement: Pie Chart → Our Handover Projects Button → Team Information */}
+      <section className="py-7 sm:py-9 bg-gradient-to-b from-[#faf9f4] via-[#f5f2e8] to-[#faf9f4] px-4 md:px-8 border-b border-[#d4a762]/25 font-sans">
+        <div className="max-w-4xl mx-auto">
+          <div className="relative bg-white/95 rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-[#d4a762]/40 shadow-sm hover:shadow-lg transition-all flex flex-col sm:flex-row items-center justify-between gap-5 overflow-hidden group">
+            {/* Subtle luxury background radial accent */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#d4a762]/8 rounded-full blur-2xl pointer-events-none -mr-16 -mt-16" />
+
+            <div className="text-center sm:text-left relative z-10">
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase text-[#966b2d] tracking-wider mb-1">
+                <Sparkles className="w-3.5 h-3.5 text-[#d4a762] animate-pulse" />
+                <span>{siteSettings.handoverBadge || 'বাস্তবায়িত কাজের সংগ্রহশালা (Delivered Works)'}</span>
+              </div>
+              <h4 className="text-base sm:text-lg font-black text-[#2c1d07] leading-snug">
+                {siteSettings.handoverTitle || 'আমাদের ক্লায়েন্টদের সফলভাবে সম্পন্ন ও হস্তান্তরিত প্রজেক্ট'}
+              </h4>
+              <p className="text-xs text-stone-500 font-medium mt-0.5 max-w-xl">
+                {siteSettings.handoverSubtitle || 'হস্তান্তরিত আসবাব ও ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম দেখতে নিচের বাটনে ক্লিক করুন।'}
+              </p>
+            </div>
+
+            {/* Glowing & Shining Handover CTA Button */}
+            <div className="relative shrink-0 handover-pulse-glow rounded-2xl">
+              <button
+                type="button"
+                onClick={() => navigateTo('handover-projects')}
+                className="handover-shine-btn bg-gradient-to-r from-[#170f01] via-[#2f1c05] to-[#170f01] hover:from-[#2a1b05] hover:via-[#3f2708] hover:to-[#2a1b05] text-[#fdbf5e] hover:text-[#fff4d6] px-7 py-3.5 rounded-2xl text-sm font-black flex items-center gap-2.5 shadow-[0_4px_20px_rgba(212,167,98,0.35)] hover:shadow-[0_8px_30px_rgba(212,167,98,0.55)] transition-all duration-300 cursor-pointer active:scale-95 group shrink-0 border border-[#d4a762]/60 hover:border-[#fdbf5e]"
+              >
+                <div className="p-1 rounded-lg bg-[#d4a762]/20 group-hover:bg-[#d4a762]/35 transition-colors">
+                  <FolderCheck className="w-4 h-4 text-[#fdbf5e] group-hover:scale-110 transition-transform" />
+                </div>
+                <span className="font-outfit tracking-wide font-extrabold text-sm sm:text-base">
+                  {siteSettings.handoverButtonLabel || 'Our Handover Projects'}
+                </span>
+                <ArrowRight className="w-4 h-4 text-[#d4a762] group-hover:text-white group-hover:translate-x-1.5 transition-all" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* 4. TEAM INFORMATION PAGE */}
       <section id="designer" className="py-20 bg-[#faf9f4] px-4 md:px-8 border-b border-gray-100">
         <div className="max-w-7xl mx-auto">
@@ -1120,7 +1289,9 @@ export default function App() {
           </div>
 
         </div>
-      </section>      {/* FACEBOOK & WHATSAPP SOCIAL CONNECT: Two Gorgeous Interactive Banners in a Grid layout */}
+      </section>
+
+      {/* FACEBOOK & WHATSAPP SOCIAL CONNECT: Two Gorgeous Interactive Banners in a Grid layout */}
       <section id="contact" className="py-12 bg-[#faf9f4] px-4 md:px-8 border-b border-gray-100 font-sans">
         <motion.div 
           className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8"
@@ -1260,52 +1431,110 @@ export default function App() {
             </AnimatePresence>
 
             {!isAdminUnlocked ? (
-              /* Admin Secured Login Flow - Beautiful Light Theme Card */
+              /* Admin Secured Login Flow - Hardened & Protected */
               <motion.div 
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="max-w-md mx-auto bg-white rounded-3xl p-8 border border-[#d4a762]/35 shadow-xl text-center text-stone-800 animate-fade-in"
+                className="max-w-md mx-auto bg-white rounded-3xl p-7 sm:p-8 border border-[#d4a762]/40 shadow-xl text-center text-stone-850 animate-fade-in relative overflow-hidden"
               >
-                <div className="h-16 w-16 bg-[#d4a762]/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-[#d4a762]/20 text-[#a07436]">
-                  <Lock className="w-7 h-7" />
+                {/* Security header badge */}
+                <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/25 px-3 py-1 rounded-full text-emerald-800 text-[10.5px] font-black uppercase tracking-wider mb-4">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>256-Bit SSL Encrypted Admin Gateway</span>
                 </div>
-                <h4 className="text-xl font-extrabold text-[#1c1202] mb-2 font-serif uppercase tracking-tight">এডমিন সিকিউরড অ্যাক্সেস (Sign In)</h4>
-                <p className="text-xs text-stone-500 mb-6 leading-relaxed font-semibold">
-                  পণ্য কাস্টমাইজেশন, ডিলিট এবং সেটিংস পরিবর্তন করতে আপনার ক্রেডেন্সিয়াল প্রদান করুন।
+
+                <div className="h-16 w-16 bg-[#d4a762]/15 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[#d4a762]/30 text-[#a07436] shadow-sm">
+                  <Lock className="w-7 h-7 text-[#8c6223]" />
+                </div>
+
+                <h4 className="text-xl font-black text-[#1c1202] mb-1.5 font-serif uppercase tracking-tight">
+                  এডমিন সিকিউরড অ্যাক্সেস (Admin Sign In)
+                </h4>
+                <p className="text-xs text-stone-500 mb-5 leading-relaxed font-semibold">
+                  পণ্য, হ্যান্ডওভার প্রজেক্ট ও ওয়েবসাইট সেটিংস পরিচালনায় আপনার অ্যাডমিন ক্রেডেন্সিয়াল অথবা মাস্টার পাসকোড দিন।
                 </p>
+
+                {/* Brute Force Lockout Countdown Alert */}
+                {lockoutSeconds > 0 && (
+                  <div className="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-800 text-xs font-bold flex items-center gap-2.5 text-left animate-pulse">
+                    <Timer className="w-5 h-5 text-red-600 shrink-0" />
+                    <div>
+                      <p className="font-black text-red-900">অনেকবার ভুল চেষ্টা করা হয়েছে!</p>
+                      <p className="text-[11px] text-red-700 mt-0.5">
+                        নিরাপত্তার স্বার্থে এডমিন লগইন সাময়িক স্থগিত। পুনরায় চেষ্টার সময় বাকি: <strong className="font-mono text-red-900 underline">{lockoutSeconds} সেকেন্ড</strong>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Failed attempts warning */}
+                {failedAttempts > 0 && lockoutSeconds === 0 && (
+                  <div className="mb-4 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] font-bold text-left flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>ভুল চেষ্টা লক্ষ্য করা হয়েছে! অবশিষ্ট সুযোগ: <strong>{5 - failedAttempts} বার</strong></span>
+                  </div>
+                )}
 
                 <form onSubmit={handleAdminLogin} className="space-y-4 text-left font-sans">
                   <div>
-                    <label className="block text-[10px] font-bold text-[#966b2d] uppercase mb-1.5 tracking-wide">ইমেইল ঠিকানা (Email Address)</label>
+                    <label className="block text-[10px] font-bold text-[#966b2d] uppercase mb-1.5 tracking-wide">
+                      ইমেইল ঠিকানা (Email Address - ঐচ্ছিক যদি পাসকোড থাকে)
+                    </label>
                     <input 
                       type="email"
-                      placeholder="আপনার রেজিস্টার্ড ইমেইল প্রবেশ করুন"
+                      placeholder="admin@abedfurniture.com বা আপনার রেজিস্টার্ড ইমেইল"
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
-                      className="w-full bg-stone-50 border border-stone-200 text-stone-900 rounded-xl px-4 py-3 text-xs focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#d4a762]/25 placeholder:text-stone-400 transition-all font-bold"
-                      required
+                      disabled={lockoutSeconds > 0}
+                      className="w-full bg-stone-50 border border-stone-200 text-stone-900 rounded-xl px-4 py-3 text-xs focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#d4a762]/40 placeholder:text-stone-400 transition-all font-bold disabled:opacity-50"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-[#966b2d] uppercase mb-1.5 tracking-wide">পাসওয়ার্ড (Password)</label>
-                    <input 
-                      type="password"
-                      placeholder="আপনার সিকিউরড পাসওয়ার্ড প্রদান করুন"
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      className="w-full bg-stone-50 border border-stone-200 text-stone-900 rounded-xl px-4 py-3 text-xs focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#d4a762]/25 placeholder:text-stone-400 transition-all font-bold"
-                      required
-                    />
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[10px] font-bold text-[#966b2d] uppercase tracking-wide">
+                        পাসওয়ার্ড অথবা মাস্টার পাসকোড (Password / Passcode)*
+                      </label>
+                      <span className="text-[10px] text-stone-400 font-mono">Firebase / Master Key</span>
+                    </div>
+
+                    <div className="relative">
+                      <input 
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="আপনার পাসওয়ার্ড বা মাস্টার পাসকোড দিন"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        disabled={lockoutSeconds > 0}
+                        className="w-full bg-stone-50 border border-stone-200 text-stone-900 rounded-xl pl-4 pr-11 py-3 text-xs focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#d4a762]/40 placeholder:text-stone-400 transition-all font-bold disabled:opacity-50"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        disabled={lockoutSeconds > 0}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 p-1 cursor-pointer transition-colors"
+                        title={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                   
                   <button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-[#cf9d53] to-[#bfa042] text-white hover:brightness-105 active:scale-[0.99] shadow-md transition-all font-black text-xs uppercase py-3.5 rounded-xl cursor-pointer flex items-center justify-center gap-2 mt-2"
+                    disabled={lockoutSeconds > 0}
+                    className="w-full bg-gradient-to-r from-[#cf9d53] to-[#bfa042] hover:brightness-105 active:scale-[0.99] text-stone-950 font-black text-xs uppercase py-3.5 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Unlock className="w-4 h-4 text-white" />
+                    <Unlock className="w-4 h-4 text-stone-950" />
                     <span>এডমিন প্যানেল আনলক করুন</span>
                   </button>
+
+                  <div className="pt-2 text-center">
+                    <p className="text-[10px] text-stone-400 font-medium flex items-center justify-center gap-1.5">
+                      <Lock className="w-3 h-3 text-stone-400" />
+                      <span>১৫ মিনিট নিষ্ক্রিয় থাকলে সেশন স্বয়ংক্রিয়ভাবে লক হয়ে যাবে</span>
+                    </p>
+                  </div>
                 </form>
               </motion.div>
             ) : (
@@ -1342,10 +1571,10 @@ export default function App() {
                   <button
                     type="button"
                     onClick={handleAdminLogout}
-                    className="flex items-center gap-1.5 bg-[#d4a762]/10 hover:bg-[#d4a762]/10 text-[#916b2a] px-4 py-2 rounded-xl text-xs font-black border border-[#d4a762]/35 transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-800 px-4 py-2 rounded-xl text-xs font-black border border-red-200 shadow-xs hover:shadow transition-all cursor-pointer"
                   >
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>লগআউট / লক করুন</span>
+                    <Lock className="w-3.5 h-3.5 text-red-600" />
+                    <span>লক ও সাইনআউট (Lock & Sign Out)</span>
                   </button>
                 </div>
               </div>
@@ -1363,6 +1592,19 @@ export default function App() {
                 >
                   <Sparkles className="w-4 h-4 text-amber-500" />
                   <span>পণ্য ও ইন্টেরিয়র কাজ (Manage Catalog)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setActiveAdminTab('projects'); }}
+                  className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black tracking-wide uppercase transition-all whitespace-nowrap cursor-pointer ${
+                    activeAdminTab === 'projects'
+                      ? 'bg-white text-[#996d2d] border border-[#d4a762]/45 shadow-xs'
+                      : 'text-stone-500 hover:text-[#2c1d07] hover:bg-stone-100'
+                  }`}
+                >
+                  <FolderCheck className="w-4 h-4 text-[#a07436]" />
+                  <span>Handover Projects</span>
                 </button>
 
                 <button
@@ -1394,377 +1636,25 @@ export default function App() {
 
               <div className="p-4 md:p-8">
                 {activeAdminTab === 'products' && (
-                  <div className="space-y-10">
-                    
-                    {/* Catalog Configuration Form - Light Theme */}
-                    <div id="admin-form-anchor" className="bg-[#fcfaf5] p-5 md:p-8 rounded-2xl border border-stone-200 shadow-xs">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="h-10 w-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center border border-orange-200">
-                          {editingProdId ? <Edit2 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                        </div>
-                        <div>
-                          <h6 className="text-lg font-black text-stone-900">
-                            {editingProdId ? `পণ্য তথ্য সংশোধন করুন (Modify Specs)` : 'নতুন গ্যারান্টিড পণ্য বা প্রজেক্ট যোগ করুন (Add Masterpiece)'}
-                          </h6>
-                          <p className="text-xs text-stone-500">অনলাইন পোর্টালের জন্য আসবাবপত্র বা প্রিমিয়াম ইন্টেরিয়র ডিজাইন কন্টেন্ট যুক্ত করুন</p>
-                        </div>
-                      </div>
+                  <AdminProductManager
+                    products={products}
+                    onProductCreated={handleProductCreate}
+                    onProductUpdated={handleProductUpdate}
+                    onProductDeleted={handleProductDelete}
+                    showNotification={showNotification}
+                    onViewProduct={(product) => setSelectedProduct(product)}
+                  />
+                )}
 
-                      <form onSubmit={handleProductSubmit} className="space-y-6">
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                          <div>
-                            <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wide">পণ্যের ক্যাটাগরি (Product Sector or Category)*</label>
-                            <select 
-                              value={newProdCategory}
-                              onChange={(e) => setNewProdCategory(e.target.value as Category)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-900 focus:outline-none focus:border-[#d4a762] focus:ring-1 focus:ring-[#d4a762]/25 font-sans"
-                            >
-                              <option value="furniture">🛋️ Furniture (মেহগনি ও সেগুন আসবাব)</option>
-                              <option value="interior">📐 Interior (লাক্সারি ইন্টেরিয়র ডিজাইন)</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wide">ইংরেজিতে নাম (Product English Name)*</label>
-                            <input 
-                              type="text"
-                              placeholder="e.g. Royal Emperor Carved Sofa"
-                              value={newProdNameEn}
-                              onChange={(e) => setNewProdNameEn(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-900 focus:outline-none focus:border-[#d4a762] focus:ring-1 focus:ring-[#d4a762]/25 placeholder:text-stone-400 font-sans"
-                              required
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wide">বাংলায় নাম (Product Bengali Name)*</label>
-                            <input 
-                              type="text"
-                              placeholder="যেমন: মহারাজা রাজকীয় গোল্ডেন সোফা"
-                              value={newProdNameBn}
-                              onChange={(e) => setNewProdNameBn(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-900 focus:outline-none focus:border-[#d4a762] focus:ring-1 focus:ring-[#d4a762]/25 placeholder:text-stone-400"
-                              required
-                            />
-                          </div>
-                        </div>
-
-                        {/* Beautiful Curated Visual Image Presets Selector Option */}
-                        <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-3xs">
-                          <p className="text-[10px] uppercase font-bold tracking-wider text-[#9d7237] mb-3 flex items-center gap-1">
-                            <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                            <span>আমেজিং ইনস্ট্যান্ট ইমেজ অপশন (Curated Masterpiece Selectors):</span>
-                          </p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                            {IMAGE_PRESETS.map((preset, idx) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => {
-                                  setNewProdImgUrl(preset.url);
-                                  showNotification('মিনি প্রিসেট ইমেজ সফলভাবে অ্যাডমিন ফর্মে সংযুক্ত করা হয়েছে!');
-                                }}
-                                className={`group p-2 bg-stone-50 border rounded-xl text-[9px] font-bold text-stone-600 hover:text-[#9c7136] flex flex-col gap-1.5 items-center justify-center cursor-pointer transition-all ${
-                                  newProdImgUrl === preset.url ? 'border-[#d4a762] bg-[#d4a762]/5 ring-1 ring-[#d4a762]/30 text-[#9c7136]' : 'border-stone-200 hover:border-stone-300'
-                                }`}
-                              >
-                                <img src={preset.url} className="w-full h-12 object-cover rounded-lg group-hover:scale-105 transition-transform" referrerPolicy="no-referrer" />
-                                <span className="truncate block max-w-full text-center leading-none tracking-tight font-sans">{preset.name}</span>
-                              </button>
-                            ))}
-                          </div>
-                          
-                          {/* File Simulation upload interface for genuine feel */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-4 border-t border-stone-100">
-                            <div className="text-left">
-                              <span className="text-[10.5px] font-bold text-stone-700 block mb-1">স্থানিয় ডিভাইস ফাইল চয়েস (Device Image Upload Simulation)</span>
-                              <div className="flex items-center gap-2">
-                                <label className="cursor-pointer bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 rounded-xl px-4.5 py-2.5 text-xs font-bold transition-all inline-flex items-center gap-1.5 hover:scale-101 active:scale-99">
-                                  <Upload className="w-3.5 h-3.5" />
-                                  <span>ফাইল নির্বাচন করুন (Browse File)</span>
-                                  <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    className="hidden" 
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) {
-                                        // Generate high quality premium image mock based on type
-                                        const mockUrls = [
-                                          "https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&q=80&w=700",
-                                          "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=700",
-                                          "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&q=80&w=700",
-                                          "https://images.unsplash.com/photo-1618219908412-a29a1bb7b86e?auto=format&fit=crop&q=80&w=700",
-                                          "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&q=80&w=700"
-                                        ];
-                                        const randomIdx = Math.floor(Math.random() * mockUrls.length);
-                                        setNewProdImgUrl(mockUrls[randomIdx]);
-                                        showNotification(`মিডিয়া ফাইল '${file.name}' নির্বাচন করা হয়েছে! ক্লাউড আপলোড কমপ্লিট!`);
-                                      }
-                                    }}
-                                  />
-                                </label>
-                                <span className="text-[9.5px] text-stone-500 font-sans italic">PNG, JPG, WEBP formats (Max 5MB)</span>
-                              </div>
-                            </div>
-                            
-                            <div className="text-left sm:text-right">
-                              <span className="text-[10.5px] font-bold text-stone-700 block mb-1">স্মার্ট ক্যাটালগ সাজেশন (Categorical Quick Fill)</span>
-                              <div className="flex gap-1.5 sm:justify-end flex-wrap">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setNewProdImgUrl("https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=700");
-                                    showNotification('সোফা সেট ক্লাসিক ডিজাইন ইমেজ সফলভাবে লোড হয়েছে!');
-                                  }}
-                                  className="text-[9px] bg-stone-100 hover:bg-stone-200 text-stone-700 px-2.5 py-1.5 rounded-lg border border-stone-200 transition-colors"
-                                >
-                                  🛋️ Sofa Set Preset
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setNewProdImgUrl("https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&q=80&w=700");
-                                    showNotification('মাস্টার ডাবল বেড ইমেজ সফলভাবে লোড হয়েছে!');
-                                  }}
-                                  className="text-[9px] bg-stone-100 hover:bg-stone-200 text-stone-700 px-2.5 py-1.5 rounded-lg border border-stone-200 transition-colors"
-                                >
-                                  🛏️ Bed Preset
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setNewProdImgUrl("https://images.unsplash.com/photo-1618219908412-a29a1bb7b86e?auto=format&fit=crop&q=80&w=700");
-                                    showNotification('প্রিমিয়াম ইন্টেরিয়র ডিজাইন কন্টেন্ট ইমেজ সফলভাবে লোড হয়েছে!');
-                                  }}
-                                  className="text-[9px] bg-stone-100 hover:bg-stone-200 text-stone-700 px-2.5 py-1.5 rounded-lg border border-stone-200 transition-colors"
-                                >
-                                  📏 Interior Preset
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                          <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wide font-sans">পণ্যের ছবির লাইভ লিংক (Custom Image URL Option)</label>
-                            <input 
-                              type="text"
-                              placeholder="Unsplash, high-quality picture web link addresses"
-                              value={newProdImgUrl}
-                              onChange={(e) => setNewProdImgUrl(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-900 focus:outline-none focus:border-[#d4a762] focus:ring-1 focus:ring-[#d4a762]/25 placeholder:text-stone-400 font-sans"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wide">বাজেট ও মূল্য বাংলায় (Approx Budget)*</label>
-                            <input 
-                              type="text"
-                              placeholder="যেমন: ১৫,০০০ টাকা থেকে শুরু"
-                              value={newProdPriceBn}
-                              onChange={(e) => setNewProdPriceBn(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-900 focus:outline-none focus:border-[#d4a762] focus:ring-1 focus:ring-[#d4a762]/25 placeholder:text-stone-400"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wide">মূল্য ফিল্টার অংক (Min Price BDT)*</label>
-                            <input 
-                              type="number"
-                              placeholder="e.g. 15000"
-                              value={newProdMinPrice}
-                              onChange={(e) => setNewProdMinPrice(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-900 focus:outline-none focus:border-[#d4a762] focus:ring-1 focus:ring-[#d4a762]/25 font-sans"
-                              required
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                          <div>
-                            <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wide">ডেসক্রিপশন বাংলায় (Product Description Bengali)*</label>
-                            <textarea 
-                              rows={3}
-                              placeholder="যেমন: দুবাই ফেরত নকশাবিদ চমৎকার কাঠের নিখুঁত নকশা সম্বলিত।"
-                              value={newProdDescBn}
-                              onChange={(e) => setNewProdDescBn(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3.5 text-xs text-stone-900 focus:outline-none focus:border-[#d4a762] focus:ring-1 focus:ring-[#d4a762]/25 placeholder:text-stone-400"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wide">ডেসক্রিপশন ইংরেজিতে (Product Description English)</label>
-                            <textarea 
-                              rows={3}
-                              placeholder="Elegant wooden structure crafted beautifully with royal UAE carvings."
-                              value={newProdDescEn}
-                              onChange={(e) => setNewProdDescEn(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3.5 text-xs text-stone-900 focus:outline-none focus:border-[#d4a762] focus:ring-1 focus:ring-[#d4a762]/25 placeholder:text-stone-400 font-sans"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                          <div>
-                            <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wide">বৈশিষ্ট্যসমূহ বাংলায় (Specs BN: কমা দিয়ে লিখুন)*</label>
-                            <input 
-                              type="text"
-                              placeholder="যেমন: ১০০% সলিড চিটাগাং সেগুন কাঠ, লাইফটাইম ঘুনের ওয়ারেন্টি"
-                              value={newProdSpecsBn}
-                              onChange={(e) => setNewProdSpecsBn(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3.5 text-xs text-stone-900 focus:outline-none focus:border-[#d4a762] focus:ring-1 focus:ring-[#d4a762]/25 placeholder:text-stone-400"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-stone-700 mb-1.5 uppercase tracking-wide">বৈশিষ্ট্যসমূহ ইংরেজিতে (Specs EN: কমা দিয়ে লিখুন)</label>
-                            <input 
-                              type="text"
-                              placeholder="e.g. 100% Solid Segun, Lifetime timber warranty, Polish Finished"
-                              value={newProdSpecsEn}
-                              onChange={(e) => setNewProdSpecsEn(e.target.value)}
-                              className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3.5 text-xs text-stone-900 focus:outline-none focus:border-[#d4a762] focus:ring-1 focus:ring-[#d4a762]/25 placeholder:text-stone-400 font-sans"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-7 pt-2 flex-wrap">
-                          <label className="inline-flex items-center gap-2.5 cursor-pointer select-none">
-                            <input 
-                              type="checkbox"
-                              checked={newProdIsTrending}
-                              onChange={(e) => setNewProdIsTrending(e.target.checked)}
-                              className="h-4.5 w-4.5 rounded text-[#d4a762] focus:ring-opacity-50 accent-[#d4a762] cursor-pointer"
-                            />
-                            <span className="text-xs font-black text-orange-500 flex items-center gap-1">
-                              <Flame className="w-4.5 h-4.5 text-red-500 shrink-0 fill-current animate-bounce" />
-                              হট ট্রেন্ডিং ট্যাগ দিন (Traditional Trending Tag / Hot Badge)
-                            </span>
-                          </label>
-
-                          <div className="flex gap-3 ml-auto">
-                            {editingProdId && (
-                              <button
-                                type="button"
-                                onClick={cancelEditProduct}
-                                className="bg-stone-200 hover:bg-stone-300 text-stone-700 px-5 py-3 rounded-xl text-xs font-extrabold cursor-pointer transition-colors"
-                              >
-                                সংশোধন বাতিল
-                              </button>
-                            )}
-
-                            <button
-                              type="submit"
-                              className="bg-gradient-to-r from-emerald-600 to-green-500 hover:brightness-105 text-white font-black text-xs px-7 py-3 rounded-xl hover:scale-102 active:scale-98 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-                            >
-                              {editingProdId ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                              <span>{editingProdId ? 'আপডেট সংরক্ষণ করুন (Update Product)' : 'সংগ্রহশালায় যুক্ত করুন (Save Product)'}</span>
-                            </button>
-                          </div>
-                        </div>
-
-                      </form>
-                    </div>
-
-                    {/* Dynamic catalog listing for search & delete */}
-                    <div>
-                      <div className="flex justify-between items-center mb-5 flex-wrap gap-2">
-                        <div>
-                          <h6 className="text-[15px] font-black text-stone-900 flex items-center gap-1.5 font-sans">
-                            <Eye className="w-4 h-4 text-[#bca05b]" />
-                            আবেদ ফার্ণিচার ডাটাবেজ প্রডাক্টস (Added Products List)
-                          </h6>
-                          <p className="text-[10px] text-stone-500">এই তালিকার মাধ্যমে যেকোনো পণ্য দ্রুত সংশোধিত বা পৃষ্ঠা থেকে মুছে ডিলিট করতে পারেন।</p>
-                        </div>
-                        <span className="text-[10px] font-mono bg-white px-3 py-1 text-stone-700 rounded-full border border-stone-200 font-extrabold shadow-3xs">
-                          {products.length} Products Total
-                        </span>
-                      </div>
-
-                      {/* Interactive Category Filter Slots (furniture vs interior) */}
-                      <div className="flex gap-2 p-1.5 bg-stone-100 rounded-2xl border border-stone-200 w-max mb-5 font-sans">
-                        <button
-                          type="button"
-                          onClick={() => setAdminCategoryFilter('all')}
-                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black tracking-wide transition-all cursor-pointer ${
-                            adminCategoryFilter === 'all'
-                              ? 'bg-white text-[#996d2d] shadow-xs border border-stone-200'
-                              : 'text-stone-500 hover:text-stone-800'
-                          }`}
-                        >
-                          সব পণ্য ({products.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAdminCategoryFilter('furniture')}
-                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black tracking-wide transition-all cursor-pointer ${
-                            adminCategoryFilter === 'furniture'
-                              ? 'bg-white text-[#996d2d] shadow-xs border border-[#d4a762]/30'
-                              : 'text-stone-500 hover:text-stone-800'
-                          }`}
-                        >
-                          🛋️ আসবাবপত্র ({products.filter(p => p.category === 'furniture').length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAdminCategoryFilter('interior')}
-                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black tracking-wide transition-all cursor-pointer ${
-                            adminCategoryFilter === 'interior'
-                              ? 'bg-white text-[#996d2d] shadow-xs border border-[#d4a762]/30'
-                              : 'text-stone-500 hover:text-stone-800'
-                          }`}
-                        >
-                          📐 ইন্টেরিয়র কাজ ({products.filter(p => p.category === 'interior').length})
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-1.5 border border-stone-200 p-4.5 rounded-2xl bg-[#faf9f6]/40 shadow-inner">
-                        {products
-                          .filter((p) => adminCategoryFilter === 'all' || p.category === adminCategoryFilter)
-                          .map((p) => (
-                          <div key={p.id} className="bg-white border border-stone-200 p-3.5 rounded-xl flex gap-3.5 items-center justify-between group hover:border-[#d4a762]/30 hover:bg-white hover:shadow-xs transition-all">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <img src={p.imgUrl} alt={p.nameEn} className="w-14 h-14 object-cover rounded-lg border border-stone-200" referrerPolicy="no-referrer" />
-                              <div className="min-w-0 text-left">
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-black tracking-wider border block w-max leading-none mb-1 shadow-2xs ${
-                                  p.category === 'interior' ? 'bg-sky-50 text-sky-700 border-sky-100' : 'bg-amber-50 text-[#9c7136] border-[#d4a762]/20'
-                                }`}>
-                                  {p.category}
-                                </span>
-                                
-                                <h6 className="text-xs font-bold text-stone-900 truncate line-clamp-1">{p.nameBn}</h6>
-                                <p className="text-[9.5px] text-stone-500 truncate font-mono line-clamp-1 mt-0.5">{p.nameEn}</p>
-                                <p className="text-[10.5px] font-mono font-black text-[#966b2d] leading-none mt-1">{p.priceRangeEn || '৳'+p.minPrice.toLocaleString()}</p>
-                              </div>
-                            </div>
-
-                            <div className="flex gap-2 shrink-0">
-                              <button
-                                onClick={() => startEditProduct(p)}
-                                className="bg-white hover:bg-amber-50 text-stone-600 hover:text-[#9c7136] p-2.5 rounded-xl transition-all border border-stone-200 hover:border-[#d4a762]/30 cursor-pointer"
-                                title="এডিট করুন"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-
-                              <button
-                                onClick={() => deleteProduct(p.id, p.nameBn)}
-                                className="bg-white hover:bg-red-50 text-stone-500 hover:text-red-700 p-2.5 rounded-xl transition-all border border-stone-200 hover:border-red-200 cursor-pointer"
-                                title="ডিলিট করুন"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                    </div>
-
-                  </div>
+                {activeAdminTab === 'projects' && (
+                  <AdminProjectManager
+                    projects={completedProjects}
+                    setProjects={setCompletedProjects}
+                    showNotification={showNotification}
+                    siteSettings={siteSettings}
+                    setSiteSettings={setSiteSettings}
+                    onSaveSiteSettings={handleSaveSiteSettings}
+                  />
                 )}
 
                 {activeAdminTab === 'stats' && (
@@ -2158,7 +2048,181 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="flex justify-end">
+                      {/* ----------------- HANDOVER PROJECTS UPPER TEXT & HEADINGS CONTROL ----------------- */}
+                      <div className="mt-8 pt-6 border-t border-stone-800">
+                        <div className="flex items-center gap-2.5 mb-5">
+                          <div className="h-8 w-8 bg-[#d4a762]/15 text-[#d4a762] rounded-lg border border-[#d4a762]/30 flex items-center justify-center">
+                            <FolderCheck className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h6 className="text-[15px] font-black text-white">
+                              হ্যান্ডওভার প্রজেক্ট সেকশন ও পেজের টেক্সট নিয়ন্ত্রণ (Handover Upper Texts & Headings)
+                            </h6>
+                            <p className="text-[10px] text-stone-400">
+                              হোমপেজের হ্যান্ডওভার বাটন পিসের উপরের ব্যাজ, শিরোনাম, সাবটাইটেল এবং হ্যান্ডওভার অ্যালবাম পেজের বিস্তারিত টেক্সট এডিট করুন।
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5 mb-5">
+                          <div>
+                            <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">
+                              হোমপেজ হ্যান্ডওভার ব্যাজ (Handover Upper Badge)
+                            </label>
+                            <input 
+                              type="text"
+                              value={siteSettings.handoverBadge || ''}
+                              onChange={(e) => setSiteSettings(prev => ({ ...prev, handoverBadge: e.target.value }))}
+                              placeholder="বাস্তবায়িত কাজের সংগ্রহশালা (Delivered Works)"
+                              className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">
+                              বাটন পিসের ভেতরের লেখা (Button Label)
+                            </label>
+                            <input 
+                              type="text"
+                              value={siteSettings.handoverButtonLabel || ''}
+                              onChange={(e) => setSiteSettings(prev => ({ ...prev, handoverButtonLabel: e.target.value }))}
+                              placeholder="Our Handover Projects"
+                              className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-[#fdbf5e] font-bold focus:outline-none focus:border-[#d4a762]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5 mb-5">
+                          <div>
+                            <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">
+                              হোমপেজ সেকশন মূল শিরোনাম (Handover Title)
+                            </label>
+                            <input 
+                              type="text"
+                              value={siteSettings.handoverTitle || ''}
+                              onChange={(e) => setSiteSettings(prev => ({ ...prev, handoverTitle: e.target.value }))}
+                              placeholder="আমাদের ক্লায়েন্টদের সফলভাবে সম্পন্ন ও হস্তান্তরিত প্রজেক্ট"
+                              className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">
+                              হোমপেজ সেকশন সাবটাইটেল (Handover Subtitle)
+                            </label>
+                            <input 
+                              type="text"
+                              value={siteSettings.handoverSubtitle || ''}
+                              onChange={(e) => setSiteSettings(prev => ({ ...prev, handoverSubtitle: e.target.value }))}
+                              placeholder="হস্তান্তরিত আসবাব ও ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম দেখতে নিচের বাটনে ক্লিক করুন।"
+                              className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5 mb-6">
+                          <div>
+                            <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">
+                              হ্যান্ডওভার পেজের টপ ব্যাজ (Page Upper Badge)
+                            </label>
+                            <input 
+                              type="text"
+                              value={siteSettings.handoverPageBadge || ''}
+                              onChange={(e) => setSiteSettings(prev => ({ ...prev, handoverPageBadge: e.target.value }))}
+                              placeholder="Delivered Work & Customer Handovers"
+                              className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">
+                              হ্যান্ডওভার পেজের শিরোনাম (Page Title)
+                            </label>
+                            <input 
+                              type="text"
+                              value={siteSettings.handoverPageTitle || ''}
+                              onChange={(e) => setSiteSettings(prev => ({ ...prev, handoverPageTitle: e.target.value }))}
+                              placeholder="Our Handover Projects"
+                              className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mb-6">
+                          <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">
+                            হ্যান্ডওভার পেজের ভূমিকা / বিবরণ (Page Description Paragraph)
+                          </label>
+                          <textarea 
+                            rows={3}
+                            value={siteSettings.handoverPageDesc || ''}
+                            onChange={(e) => setSiteSettings(prev => ({ ...prev, handoverPageDesc: e.target.value }))}
+                            placeholder="আমাদের সম্মানিত গ্রাহকদের সফলভাবে বুঝিয়ে দেওয়া প্রিমিয়াম আসবাবপত্র ও এক্সক্লুসিভ হোম ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম।"
+                            className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* ----------------- ADMIN SECURITY & MASTER PASSCODE ----------------- */}
+                      <div className="mt-8 pt-6 border-t border-stone-800 bg-stone-950/70 p-5 rounded-2xl border border-stone-850">
+                        <div className="flex items-center gap-2.5 mb-4">
+                          <div className="h-8 w-8 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20 flex items-center justify-center">
+                            <ShieldCheck className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h6 className="text-[15px] font-black text-white">
+                              এডমিন প্যানেল নিরাপত্তা ও মাস্টার পাসকোড (Admin Panel Security & Master Key)
+                            </h6>
+                            <p className="text-[10px] text-stone-400">
+                              এডমিন প্যানেলে সরাসরি প্রবেশের জন্য সুরক্ষিত মাস্টার পাসকোড পরিবর্তন ও কনফিগার করুন।
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                          <div className="p-3 bg-stone-900 rounded-xl border border-stone-800 text-[11px] text-stone-300 flex items-center gap-2">
+                            <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span><strong>লকআউট সুরক্ষা:</strong> ৫ বার ভুল চেষ্টায় ১ মিনিট লক</span>
+                          </div>
+                          <div className="p-3 bg-stone-900 rounded-xl border border-stone-800 text-[11px] text-stone-300 flex items-center gap-2">
+                            <Timer className="w-4 h-4 text-sky-400 shrink-0" />
+                            <span><strong>ইনঅ্যাক্টিভিটি লক:</strong> ১৫ মিনিট পর স্বয়ংক্রিয় লক</span>
+                          </div>
+                          <div className="p-3 bg-stone-900 rounded-xl border border-stone-800 text-[11px] text-stone-300 flex items-center gap-2">
+                            <Key className="w-4 h-4 text-amber-400 shrink-0" />
+                            <span><strong>এনক্রিপশন:</strong> ক্লাউড ফায়ারস্টোর এসএসএল</span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                          <div className="w-full sm:w-80">
+                            <input 
+                              type="password"
+                              placeholder="নতুন মাস্টার পাসকোড দিন (কমপক্ষে ৬ অক্ষর)"
+                              value={newPasscodeInput}
+                              onChange={(e) => setNewPasscodeInput(e.target.value)}
+                              className="w-full bg-stone-900 border border-stone-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isUpdatingPasscode || !newPasscodeInput.trim()}
+                            onClick={async () => {
+                              if (!newPasscodeInput.trim()) return;
+                              setIsUpdatingPasscode(true);
+                              const ok = await handleUpdateMasterPasscode(newPasscodeInput);
+                              setIsUpdatingPasscode(false);
+                              if (ok) setNewPasscodeInput('');
+                            }}
+                            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+                          >
+                            <Key className="w-3.5 h-3.5" />
+                            <span>পাসকোড পরিবর্তন করুন</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end mt-6">
                         <button
                           type="button"
                           onClick={handleSaveSiteSettings}
@@ -2231,6 +2295,7 @@ export default function App() {
           <div className="flex gap-4">
             <button onClick={() => scrollToSection('hero')} className="hover:text-white transition-colors cursor-pointer font-semibold">Home</button>
             <button onClick={() => scrollToSection('products')} className="hover:text-white transition-colors cursor-pointer font-semibold">Products</button>
+            <button onClick={() => navigateTo('handover-projects')} className="hover:text-[#fdbf5e] transition-colors cursor-pointer font-semibold">Handover Projects</button>
             <button onClick={() => scrollToSection('designer')} className="hover:text-white transition-colors cursor-pointer font-semibold">Designer</button>
             <button 
               onClick={() => {

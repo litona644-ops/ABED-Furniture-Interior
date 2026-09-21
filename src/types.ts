@@ -6,6 +6,7 @@ export interface Product {
   nameEn: string;
   category: Category;
   imgUrl: string;
+  images?: string[];
   priceRangeBn: string;
   priceRangeEn: string;
   minPrice: number; // For sorting
@@ -14,6 +15,7 @@ export interface Product {
   specsBn: string[];
   specsEn: string[];
   isTrending?: boolean;
+  createdAt?: number;
 }
 
 export interface Review {
@@ -28,4 +30,22 @@ export interface ConsultationResponse {
   vibe: string;
   preferredStyle: string;
   recommendedProducts: string[];
+}
+
+export type ProjectCategory = 'furniture' | 'interior' | 'full_project';
+
+export interface CompletedProject {
+  id: string;
+  title: string;
+  titleEn?: string;
+  category: ProjectCategory;
+  clientLocation: string;
+  completionDate: string;
+  description: string;
+  descriptionEn?: string;
+  coverImage?: string;
+  photos: string[];
+  videos: string[];
+  clientName?: string;
+  createdAt?: number;
 }
