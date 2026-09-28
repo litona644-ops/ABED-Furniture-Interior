@@ -39,8 +39,39 @@
       "@context": "https://schema.org",
       "@graph": [
         {
+          "@type": "Organization",
+          "@id": "https://abedfurniture.com/#organization",
+          "name": "আবেদ ফার্ণিচার ও ইন্টেরিয়র",
+          "alternateName": "Abed Furniture & Interior",
+          "url": "https://abedfurniture.com/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=500&q=80",
+            "caption": "Abed Furniture & Interior Logo"
+          },
+          "image": "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&h=630&q=80",
+          "description": "আবেদ ফার্ণিচার ও ইন্টেরিয়র - প্রিমিয়াম মেহগনি ও সেগুন কাঠের ফার্ণিচার এবং আধুনিক হোম ও অফিস ইন্টেরিয়র ডিজাইন সার্ভিস। গেন্ডারিয়া, ঢাকা।",
+          "telephone": "+8801816234157",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "ধূপখোলা মাঠ সংলগ্ন, গেন্ডারিয়া",
+            "addressLocality": "ঢাকা",
+            "addressRegion": "ঢাকা বিভাগ",
+            "postalCode": "1204",
+            "addressCountry": "BD"
+          },
+          "founder": {
+            "@type": "Person",
+            "name": "Liton Ali",
+            "alternateName": "লিটন আলী",
+            "jobTitle": "Chief Design Consultant & Crafts Lead",
+            "description": "Woodwork specialist and interior designer with 15+ years of experience including 8 years with Arab Tech in Dubai, UAE."
+          }
+        },
+        {
           "@type": ["FurnitureStore", "HomeAndConstructionBusiness", "LocalBusiness"],
           "@id": "https://abedfurniture.com/#business",
+          "parentOrganization": { "@id": "https://abedfurniture.com/#organization" },
           "name": "আবেদ ফার্ণিচার ও ইন্টেরিয়র",
           "alternateName": "Abed Furniture & Interior",
           "url": "https://abedfurniture.com/",
