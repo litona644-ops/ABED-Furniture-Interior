@@ -1,0 +1,10 @@
+# Robots.txt for Abed Furniture & Interior
+# Allows crawling of all public pages, catalog, and handover galleries
+User-agent: *
+Allow: /
+Allow: /handover-projects
+Disallow: /admin
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://abedfurniture.com/sitemap.xml

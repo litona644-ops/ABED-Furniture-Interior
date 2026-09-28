@@ -37,7 +37,11 @@ import {
   ArrowUpRight,
   Upload,
   ChevronDown,
-  FolderCheck
+  FolderCheck,
+  Globe,
+  ExternalLink,
+  Share2,
+  FileCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PRODUCTS, DEFAULT_COMPLETED_PROJECTS } from './data';
@@ -89,6 +93,10 @@ const DEFAULT_SETTINGS = {
   handoverPageBadge: 'Delivered Work & Customer Handovers',
   handoverPageTitle: 'Our Handover Projects',
   handoverPageDesc: 'আমাদের সম্মানিত গ্রাহকদের সফলভাবে বুঝিয়ে দেওয়া প্রিমিয়াম আসবাবপত্র ও এক্সক্লুসিভ হোম ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম।',
+  // SEO, Open Graph & Structured Data Settings
+  seoTitle: 'আবেদ ফার্ণিচার ও ইন্টেরিয়র | Abed Furniture & Interior Design Dhaka',
+  metaDescription: 'প্রিমিয়াম মেহগনি ও সেগুন কাঠের ফার্ণিচার এবং আধুনিক হোম ইন্টেরিয়র ডিজাইন সার্ভিস। গেন্ডারিয়া, ঢাকা।',
+  seoKeywords: 'আবেদ ফার্ণিচার, আবেদ ইন্টেরিয়র, Abed Furniture, Abed Interior, Furniture Shop Dhaka, Interior Design Bangladesh, সেগুন কাঠের ফার্ণিচার, মেহগনি ফার্নিচার, Gandaria Dhaka Furniture, Modern Interior Design, Wood Craftsman Liton Ali, Luxury Furniture Dhaka',
 };
 
 export default function App() {
@@ -202,6 +210,67 @@ export default function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Dynamic SEO & Metadata synchronization for Browser Title, OpenGraph, Canonical & Meta tags
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    let pageTitle = siteSettings.seoTitle || 'আবেদ ফার্ণিচার ও ইন্টেরিয়র | Abed Furniture & Interior Design Dhaka';
+    let pageDesc = siteSettings.metaDescription || 'প্রিমিয়াম মেহগনি ও সেগুন কাঠের ফার্ণিচার এবং আধুনিক হোম ইন্টেরিয়র ডিজাইন সার্ভিস। গেন্ডারিয়া, ঢাকা।';
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://abedfurniture.com';
+    let pageUrl = baseUrl + '/';
+
+    if (currentView === 'handover-projects') {
+      pageTitle = `${siteSettings.handoverPageTitle || 'Our Handover Projects'} – ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Furniture & Interior'}`;
+      pageDesc = siteSettings.handoverPageDesc || 'আমাদের সম্মানিত গ্রাহকদের সফলভাবে বুঝিয়ে দেওয়া প্রিমিয়াম আসবাবপত্র ও এক্সক্লুসিভ হোম ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম।';
+      pageUrl = baseUrl + '/handover-projects';
+    } else if (selectedProduct) {
+      pageTitle = `${selectedProduct.nameBn || selectedProduct.nameEn} | ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Furniture'}`;
+      pageDesc = selectedProduct.descriptionBn || selectedProduct.descriptionEn || pageDesc;
+    }
+
+    document.title = pageTitle;
+
+    // Update Meta Description
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', pageDesc);
+
+    // Update Keywords
+    const metaKeywords = document.querySelector('meta[name="keywords"]');
+    if (metaKeywords && siteSettings.seoKeywords) {
+      metaKeywords.setAttribute('content', siteSettings.seoKeywords);
+    }
+
+    // Update OpenGraph tags
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute('content', pageTitle);
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc) ogDesc.setAttribute('content', pageDesc);
+    const ogUrl = document.querySelector('meta[property="og:url"]');
+    if (ogUrl) ogUrl.setAttribute('content', pageUrl);
+
+    // Update Twitter tags
+    const twTitle = document.querySelector('meta[name="twitter:title"]');
+    if (twTitle) twTitle.setAttribute('content', pageTitle);
+    const twDesc = document.querySelector('meta[name="twitter:description"]');
+    if (twDesc) twDesc.setAttribute('content', pageDesc);
+
+    // Update Canonical URL
+    const canonicalLink = document.querySelector('link[rel="canonical"]');
+    if (canonicalLink) {
+      canonicalLink.setAttribute('href', pageUrl);
+    }
+  }, [
+    currentView, 
+    selectedProduct, 
+    siteSettings.seoTitle, 
+    siteSettings.metaDescription, 
+    siteSettings.seoKeywords, 
+    siteSettings.brandNameLeft, 
+    siteSettings.brandNameRight, 
+    siteSettings.handoverPageTitle, 
+    siteSettings.handoverPageDesc
+  ]);
 
   // Real-time Firestore sync for products catalog
   useEffect(() => {
@@ -2159,6 +2228,106 @@ export default function App() {
                             placeholder="আমাদের সম্মানিত গ্রাহকদের সফলভাবে বুঝিয়ে দেওয়া প্রিমিয়াম আসবাবপত্র ও এক্সক্লুসিভ হোম ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম।"
                             className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
                           />
+                        </div>
+                      </div>
+
+                      {/* ----------------- SEO & SEARCH ENGINE OPTIMIZATION ----------------- */}
+                      <div className="mt-8 pt-6 border-t border-stone-800 bg-[#161006]/60 p-5 sm:p-6 rounded-2xl border border-[#d4a762]/20">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 bg-[#d4a762]/20 text-[#d4a762] rounded-lg border border-[#d4a762]/30 flex items-center justify-center">
+                              <Globe className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h6 className="text-[15px] font-black text-white flex items-center gap-2">
+                                সার্চ ইঞ্জিন অপ্টিমাইজেশন (SEO & Social OpenGraph Settings)
+                                <span className="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">Active</span>
+                              </h6>
+                              <p className="text-[10px] text-stone-400">
+                                গুগল সার্চ রেজাল্ট, ফেসবুক, হোয়াটসঅ্যাপ এবং অন্যান্য সোশ্যালে সাইট লিংক শেয়ারিং মেটাডাটা ও কি-ওয়ার্ডস কনফিগার করুন।
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* SEO Features Live Indicators */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
+                          <a 
+                            href="/sitemap.xml" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="p-2.5 bg-stone-900/90 hover:bg-stone-850 rounded-xl border border-stone-800 text-[11px] text-stone-300 flex items-center justify-between group transition-colors"
+                          >
+                            <span className="flex items-center gap-1.5 font-mono text-[10px] text-amber-300">
+                              <FileCheck className="w-3.5 h-3.5 text-amber-400" />
+                              sitemap.xml
+                            </span>
+                            <ExternalLink className="w-3 h-3 text-stone-500 group-hover:text-white transition-colors" />
+                          </a>
+
+                          <a 
+                            href="/robots.txt" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="p-2.5 bg-stone-900/90 hover:bg-stone-850 rounded-xl border border-stone-800 text-[11px] text-stone-300 flex items-center justify-between group transition-colors"
+                          >
+                            <span className="flex items-center gap-1.5 font-mono text-[10px] text-sky-300">
+                              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                              robots.txt
+                            </span>
+                            <ExternalLink className="w-3 h-3 text-stone-500 group-hover:text-white transition-colors" />
+                          </a>
+
+                          <div className="p-2.5 bg-stone-900/90 rounded-xl border border-stone-800 text-[11px] text-stone-300 flex items-center gap-1.5">
+                            <Share2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span className="text-[10px]">OpenGraph & Cards</span>
+                          </div>
+
+                          <div className="p-2.5 bg-stone-900/90 rounded-xl border border-stone-800 text-[11px] text-stone-300 flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                            <span className="text-[10px]">Schema.org JSON-LD</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">
+                              এসইও পেইজ টাইটেল (SEO Title - Recommended: 40-60 Characters)
+                            </label>
+                            <input 
+                              type="text"
+                              value={siteSettings.seoTitle || ''}
+                              onChange={(e) => setSiteSettings(prev => ({ ...prev, seoTitle: e.target.value }))}
+                              placeholder="আবেদ ফার্ণিচার ও ইন্টেরিয়র | Abed Furniture & Interior Design Dhaka"
+                              className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">
+                              মেটা ডেসক্রিপশন (Meta Description - Google Snippet)
+                            </label>
+                            <textarea 
+                              rows={2}
+                              value={siteSettings.metaDescription || ''}
+                              onChange={(e) => setSiteSettings(prev => ({ ...prev, metaDescription: e.target.value }))}
+                              placeholder="প্রিমিয়াম মেহগনি ও সেগুন কাঠের ফার্ণিচার এবং আধুনিক হোম ইন্টেরিয়র ডিজাইন সার্ভিস। গেন্ডারিয়া, ঢাকা।"
+                              className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">
+                              এসইও কি-ওয়ার্ডস (SEO Focus Keywords - Comma Separated)
+                            </label>
+                            <textarea 
+                              rows={2}
+                              value={siteSettings.seoKeywords || ''}
+                              onChange={(e) => setSiteSettings(prev => ({ ...prev, seoKeywords: e.target.value }))}
+                              placeholder="আবেদ ফার্ণিচার, আবেদ ইন্টেরিয়র, Abed Furniture, Abed Interior, Furniture Shop Dhaka, Interior Design Bangladesh, সেগুন কাঠের ফার্ণিচার, মেহগনি ফার্নিচার, Gandaria Dhaka Furniture, Modern Interior Design, Wood Craftsman Liton Ali"
+                              className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
+                            />
+                          </div>
                         </div>
                       </div>
 
