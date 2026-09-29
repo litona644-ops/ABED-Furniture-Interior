@@ -27,7 +27,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { CompletedProject, ProjectCategory } from '../types';
-import { uploadProjectImage, uploadProjectVideo } from '../lib/firebase';
+import { uploadProjectImage, uploadProjectVideo, ensureAuthSession } from '../lib/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -72,6 +72,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState('');
+  const [uploadProgressPercent, setUploadProgressPercent] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
 
   // Optional manual video URL input
@@ -138,12 +139,13 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
     setIsFormOpen(true);
   };
 
-  // VERY EASY PHOTO UPLOAD: Select files directly from phone/PC and auto-upload to Firebase
+  // PHOTO UPLOAD: Select files directly from phone/PC and upload to Firebase Storage with live progress
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setIsUploadingPhoto(true);
+    setUploadProgressPercent(0);
     const newUploadedUrls: string[] = [];
 
     try {
@@ -151,7 +153,13 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
       for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
         setUploadProgressText(`ছবি আপলোড হচ্ছে (${i + 1}/${fileList.length})...`);
-        const url = await uploadProjectImage(file, editingProjectId || 'project');
+        const url = await uploadProjectImage(
+          file, 
+          editingProjectId || 'project',
+          (percent) => {
+            setUploadProgressPercent(percent);
+          }
+        );
         if (url) {
           newUploadedUrls.push(url);
         }
@@ -165,40 +173,49 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
         return updated;
       });
 
-      showNotification(`${newUploadedUrls.length}টি প্রজেক্ট ছবি সফলভাবে আপলোড হয়েছে!`, 'success');
+      showNotification(`${newUploadedUrls.length}টি ছবি Firebase Storage এ সফলভাবে আপলোড হয়েছে!`, 'success');
     } catch (err: any) {
       console.error('Photo upload error:', err);
-      showNotification('ছবি আপলোডে সমস্যা হয়েছে: ' + (err.message || 'Error'), 'error');
+      showNotification(err.message || 'ছবি আপলোডে সমস্যা হয়েছে।', 'error');
     } finally {
       setIsUploadingPhoto(false);
       setUploadProgressText('');
+      setUploadProgressPercent(0);
       if (photoInputRef.current) photoInputRef.current.value = '';
     }
   };
 
-  // VERY EASY VIDEO UPLOAD: Select video directly from phone/PC and auto-upload to Firebase
+  // VIDEO UPLOAD: Select video directly from phone/PC and upload to Firebase Storage with live percentage
   const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const file = files[0];
 
-    // File size check: Recommended limit < 40MB
-    const maxSizeBytes = 45 * 1024 * 1024; // 45MB
+    // File size check: Recommended limit < 100MB
+    const maxSizeBytes = 100 * 1024 * 1024; // 100MB
     if (file.size > maxSizeBytes) {
-      showNotification('ভিডিও সাইজ ৪৫MB এর বেশি! অনুগ্রহ করে ৪৫MB এর নিচের ভিডিও ফাইল নির্বাচন করুন।', 'error');
+      showNotification('ভিডিও সাইজ ১০০MB এর বেশি! অনুগ্রহ করে ১০০MB এর নিচের ভিডিও ফাইল নির্বাচন করুন।', 'error');
       if (videoInputRef.current) videoInputRef.current.value = '';
       return;
     }
 
     setIsUploadingVideo(true);
-    setUploadProgressText('ভিডিও আপলোড ও প্রস্তুত হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...');
+    setUploadProgressPercent(0);
+    setUploadProgressText('ভিডিও আপলোড হচ্ছে, অপেক্ষা করুন...');
 
     try {
-      const videoUrl = await uploadProjectVideo(file, editingProjectId || 'project');
+      const videoUrl = await uploadProjectVideo(
+        file, 
+        editingProjectId || 'project',
+        (percent) => {
+          setUploadProgressPercent(percent);
+          setUploadProgressText(`ভিডিও আপলোড হচ্ছে (${percent}%)...`);
+        }
+      );
       if (videoUrl) {
         setVideos(prev => [...prev, videoUrl]);
-        showNotification('প্রজেক্ট ভিডিও সফলভাবে আপলোড হয়েছে!', 'success');
+        showNotification('প্রজেক্ট ভিডিও সফলভাবে Firebase Storage এ সংরক্ষিত হয়েছে!', 'success');
       }
     } catch (err: any) {
       console.error('Video upload error:', err);
@@ -206,6 +223,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
     } finally {
       setIsUploadingVideo(false);
       setUploadProgressText('');
+      setUploadProgressPercent(0);
       if (videoInputRef.current) videoInputRef.current.value = '';
     }
   };
@@ -316,6 +334,9 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
           ? (projects.find(p => p.id === editingProjectId)?.createdAt || Date.now())
           : Date.now()
       };
+
+      // Ensure active auth session for Firestore security rules
+      await ensureAuthSession();
 
       // Save to Firebase Firestore collection `completed_projects`
       await setDoc(doc(db, 'completed_projects', projectId), projectPayload, { merge: true });
@@ -842,9 +863,20 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                   </div>
 
                   {isUploadingPhoto && (
-                    <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin shrink-0 text-amber-600" />
-                      <span>{uploadProgressText || 'ছবিগুলো প্রস্তুত ও আপলোড করা হচ্ছে...'}</span>
+                    <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-2">
+                      <div className="flex items-center justify-between font-bold">
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin shrink-0 text-amber-600" />
+                          <span>{uploadProgressText || 'ছবিগুলো Firebase Storage এ আপলোড করা হচ্ছে...'}</span>
+                        </div>
+                        <span className="font-mono text-amber-800 font-black">{uploadProgressPercent}%</span>
+                      </div>
+                      <div className="w-full bg-amber-200/70 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className="bg-[#d4a762] h-full rounded-full transition-all duration-200 ease-out"
+                          style={{ width: `${uploadProgressPercent}%` }}
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -952,9 +984,20 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                   </div>
 
                   {isUploadingVideo && (
-                    <div className="p-3 bg-red-50 rounded-xl border border-red-200 text-xs text-red-900 flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin shrink-0 text-red-600" />
-                      <span>{uploadProgressText || 'ভিডিও আপলোড হচ্ছে, দয়া করে পেইজ রিলোড করবেন না...'}</span>
+                    <div className="p-3.5 bg-red-50 rounded-xl border border-red-200 text-xs text-red-900 space-y-2">
+                      <div className="flex items-center justify-between font-bold">
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin shrink-0 text-red-600" />
+                          <span>{uploadProgressText || 'ভিডিও Firebase Storage এ আপলোড হচ্ছে...'}</span>
+                        </div>
+                        <span className="font-mono text-red-700 font-black">{uploadProgressPercent}%</span>
+                      </div>
+                      <div className="w-full bg-red-200/70 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className="bg-red-600 h-full rounded-full transition-all duration-200 ease-out"
+                          style={{ width: `${uploadProgressPercent}%` }}
+                        />
+                      </div>
                     </div>
                   )}
 

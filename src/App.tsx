@@ -50,7 +50,7 @@ import ProjectStatsChart from './components/ProjectStatsChart';
 import AdminProductManager from './components/AdminProductManager';
 import { HandoverProjectsPage } from './components/HandoverProjectsPage';
 import { AdminProjectManager } from './components/AdminProjectManager';
-import { auth, db } from './lib/firebase';
+import { auth, db, ensureAuthSession } from './lib/firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -547,6 +547,7 @@ export default function App() {
       setIsAdminUnlocked(true);
       setPasscodeError(false);
       setFailedAttempts(0);
+      ensureAuthSession();
       showNotification('মাস্টার পাসকোড সফল! এডমিন প্যানেল আনলক হয়েছে।');
       seedFirestoreIfEmpty();
       return;

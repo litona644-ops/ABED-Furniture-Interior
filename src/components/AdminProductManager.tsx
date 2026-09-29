@@ -160,10 +160,10 @@ export default function AdminProductManager({
         return prev;
       });
 
-      showNotification('ছবিটি সফলভাবে ফায়ারবেস ক্লাউড স্টোরেজে আপলোড হয়েছে!');
-    } catch (err) {
+      showNotification('ছবিটি সফলভাবে Firebase Storage এ আপলোড হয়েছে!');
+    } catch (err: any) {
       console.error('Image upload error:', err);
-      showNotification('ছবি আপলোডে সমস্যা হলেও প্রিভিউ সুরক্ষিত রয়েছে।', 'error');
+      showNotification(err?.message || 'ছবি আপলোডে সমস্যা হয়েছে।', 'error');
     } finally {
       setIsUploading(false);
       // Reset input value so re-selecting same file triggers change
@@ -192,10 +192,10 @@ export default function AdminProductManager({
         setPrimaryImgUrl(urls[0]);
       }
 
-      showNotification(`${urls.length} টি অতিরিক্ত ছবি সফলভাবে স্টোরেজে আপলোড করা হয়েছে!`);
-    } catch (err) {
+      showNotification(`${urls.length} টি অতিরিক্ত ছবি সফলভাবে Firebase Storage এ আপলোড করা হয়েছে!`);
+    } catch (err: any) {
       console.error('Gallery upload error:', err);
-      showNotification('অতিরিক্ত ছবি আপলোডে কিছু সমস্যা হয়েছে।', 'error');
+      showNotification(err?.message || 'অতিরিক্ত ছবি আপলোডে সমস্যা হয়েছে।', 'error');
     } finally {
       setIsUploading(false);
       if (galleryFileInputRef.current) galleryFileInputRef.current.value = '';

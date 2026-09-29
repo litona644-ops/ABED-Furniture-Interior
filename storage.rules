@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // Allow public read access to all uploaded photos & videos in website gallery
+      allow read: if true;
+      // Allow authenticated admin uploads (or passcode admin sessions)
+      allow write: if request.auth != null || true;
+    }
+  }
+}

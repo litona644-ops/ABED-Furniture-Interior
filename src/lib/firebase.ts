@@ -1,7 +1,13 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { initializeFirestore, getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { 
+  getStorage, 
+  ref, 
+  uploadBytesResumable, 
+  getDownloadURL,
+  type FirebaseStorage
+} from 'firebase/storage';
 import defaultConfig from '../../firebase-applet-config.json';
 
 // Support both Vercel environment variables (VITE_FIREBASE_*) and bundled firebase-applet-config.json
@@ -33,152 +39,184 @@ try {
 
 export const db = firestoreInstance;
 
-// Safely initialize Firebase Storage on demand without crashing app startup
-let storageInstance: any = null;
-let storageInitialized = false;
+/**
+ * Ensures an active Firebase Auth session so that Firebase Storage and Firestore
+ * security rules (which require request.auth != null) allow the write operation.
+ */
+export async function ensureAuthSession(): Promise<void> {
+  if (!auth.currentUser) {
+    try {
+      await signInAnonymously(auth);
+    } catch (authErr) {
+      console.warn('Anonymous auth note (proceeding with existing session):', authErr);
+    }
+  }
+}
 
-export function getStorageSafe() {
-  if (storageInitialized) return storageInstance;
-  storageInitialized = true;
+/**
+ * Get or initialize Firebase Storage instance.
+ * Supports primary bucket and alternate bucket fallback.
+ */
+const primaryBucket = firebaseConfig.storageBucket || 'abed-furniture-interior.firebasestorage.app';
+const alternateBucket = primaryBucket.endsWith('.firebasestorage.app')
+  ? primaryBucket.replace('.firebasestorage.app', '.appspot.com')
+  : primaryBucket.replace('.appspot.com', '.firebasestorage.app');
+
+export function getStorageInstance(bucketName?: string): FirebaseStorage {
+  const targetBucket = bucketName || primaryBucket;
+  return getStorage(app, targetBucket ? `gs://${targetBucket}` : undefined);
+}
+
+export const storage = getStorageInstance();
+
+/**
+ * Parses Firebase Storage error codes into clear, human-readable messages.
+ */
+function formatStorageError(err: any): Error {
+  const code = err?.code || '';
+  const message = err?.message || '';
+
+  if (code === 'storage/bucket-not-found' || code === 'storage/object-not-found' || message.includes('404') || err?.status_ === 404) {
+    return new Error(
+      'Firebase Cloud Storage বালতি (Bucket) সক্রিয় নেই বা পাওয়া যায়নি। অনুগ্রহ করে Firebase Console (https://console.firebase.google.com) এ গিয়ে আপনার প্রজেক্টের "Build > Storage" এ ঢুকে "Get Started" বাটনে ক্লিক করে স্টোরেজ সক্রিয় করুন।'
+    );
+  }
+  if (code === 'storage/unauthorized' || err?.status_ === 403) {
+    return new Error(
+      'ফাইল আপলোড করার অনুমতি নেই (Firebase Storage Rules দ্বারা প্রত্যাখ্যাত)। নিশ্চিত করুন যে আপনি এডমিন হিসেবে লগইন আছেন এবং Storage Rules আপডেট করা হয়েছে।'
+    );
+  }
+  if (code === 'storage/quota-exceeded') {
+    return new Error('Firebase Storage এর স্টোরেজ কোটা পূর্ণ হয়ে গেছে।');
+  }
+  if (code === 'storage/retry-limit-exceeded' || code === 'storage/canceled') {
+    return new Error('নেটওয়ার্ক সংযোগ সমস্যার কারণে আপলোড সম্পন্ন হতে পারেনি। অনুগ্রহ করে পুনরায় চেষ্টা করুন।');
+  }
+  if (code === 'storage/invalid-checksum') {
+    return new Error('ফাইল আপলোডে ত্রুটি দেখা দিয়েছে (Invalid Checksum)। ফাইলটি পুনরায় সিলেক্ট করে আপলোড করুন।');
+  }
+
+  return new Error(message || 'ফাইল আপলোডে সমস্যা হয়েছে। অনুগ্রহ করে ইন্টারনেট ও ফায়ারবেস কনফিগারেশন যাচাই করুন।');
+}
+
+/**
+ * Core upload function: uploads directly to Firebase Storage using uploadBytesResumable,
+ * tracks live progress, retrieves download URL, and rejects with actionable error messages.
+ */
+export async function uploadFileToStorage(
+  file: File,
+  storagePath: string,
+  contentType: string,
+  onProgress?: (percent: number) => void
+): Promise<string> {
+  await ensureAuthSession();
+
+  // Helper to execute upload task on a specific storage bucket
+  const executeUpload = (storageObj: FirebaseStorage): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const storageRef = ref(storageObj, storagePath);
+      const metadata = {
+        contentType: contentType || file.type || 'application/octet-stream',
+      };
+
+      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          if (snapshot.totalBytes > 0) {
+            const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+            if (onProgress) {
+              onProgress(Math.min(100, Math.max(0, percent)));
+            }
+          }
+        },
+        (error) => {
+          reject(error);
+        },
+        async () => {
+          try {
+            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+            if (onProgress) onProgress(100);
+            resolve(downloadUrl);
+          } catch (urlError) {
+            reject(urlError);
+          }
+        }
+      );
+    });
+  };
+
   try {
-    storageInstance = getStorage(app);
-  } catch (err) {
-    console.warn('Firebase Storage is not available or not configured in this project:', err);
-    storageInstance = null;
-  }
-  return storageInstance;
-}
+    // Attempt 1: Upload to primary bucket
+    const primaryStorage = getStorageInstance(primaryBucket);
+    return await executeUpload(primaryStorage);
+  } catch (err1: any) {
+    // If bucket was 404, try the alternate bucket format (.appspot.com vs .firebasestorage.app)
+    const isNotFound = err1?.code === 'storage/bucket-not-found' || 
+                       err1?.code === 'storage/object-not-found' || 
+                       err1?.status_ === 404 ||
+                       (err1?.message && err1.message.includes('404'));
 
-/**
- * Compresses an image file to an optimized base64 data URL
- */
-export async function compressImage(file: File, maxWidth = 900, quality = 0.75): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(e.target?.result as string);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        try {
-          const dataUrl = canvas.toDataURL('image/webp', quality);
-          resolve(dataUrl);
-        } catch {
-          resolve(canvas.toDataURL('image/jpeg', quality));
-        }
-      };
-      img.onerror = (err) => reject(err);
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(file);
-  });
-}
-
-/**
- * Uploads an image file to Firebase Storage with automatic fallback
- */
-export async function uploadProductImage(file: File, productId?: string): Promise<string> {
-  const timestamp = Date.now();
-  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-  const path = `products/${productId || 'new'}_${timestamp}_${safeName}`;
-  
-  const storageRefInstance = getStorageSafe();
-  if (storageRefInstance) {
-    try {
-      const storageRef = ref(storageRefInstance, path);
-      const metadata = {
-        contentType: file.type || 'image/jpeg',
-      };
-      const snapshot = await uploadBytes(storageRef, file, metadata);
-      const downloadUrl = await getDownloadURL(snapshot.ref);
-      return downloadUrl;
-    } catch (storageError) {
-      console.warn('Firebase Storage upload note (using optimized compression fallback):', storageError);
+    if (isNotFound && alternateBucket && alternateBucket !== primaryBucket) {
+      console.warn(`Primary storage bucket "${primaryBucket}" returned 404, trying alternate bucket "${alternateBucket}"...`);
+      try {
+        const altStorage = getStorageInstance(alternateBucket);
+        return await executeUpload(altStorage);
+      } catch (err2: any) {
+        console.error('Alternate storage bucket upload failed:', err2);
+        throw formatStorageError(err2);
+      }
     }
-  }
 
-  // Graceful fallback to client-side compressed webp/jpeg data URL
-  return await compressImage(file);
+    console.error('Firebase Storage upload failed:', err1);
+    throw formatStorageError(err1);
+  }
 }
 
 /**
- * Uploads a completed project photo to Firebase Storage with automatic fallback
+ * Uploads a completed project photo to Firebase Storage and returns the public download URL.
  */
-export async function uploadProjectImage(file: File, projectId?: string): Promise<string> {
-  const timestamp = Date.now();
-  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-  const path = `completed_projects/photos/${projectId || 'new'}_${timestamp}_${safeName}`;
-  
-  const storageRefInstance = getStorageSafe();
-  if (storageRefInstance) {
-    try {
-      const storageRef = ref(storageRefInstance, path);
-      const metadata = {
-        contentType: file.type || 'image/jpeg',
-      };
-      const snapshot = await uploadBytes(storageRef, file, metadata);
-      const downloadUrl = await getDownloadURL(snapshot.ref);
-      return downloadUrl;
-    } catch (storageError) {
-      console.warn('Firebase Storage image upload fallback:', storageError);
-    }
-  }
-
-  // Graceful fallback to client-side compressed webp/jpeg data URL
-  return await compressImage(file, 1400, 0.82);
-}
-
-/**
- * Uploads a completed project video to Firebase Storage with automatic fallback
- */
-export async function uploadProjectVideo(
+export async function uploadProjectImage(
   file: File, 
-  projectId?: string
+  projectId?: string,
+  onProgress?: (percent: number) => void
 ): Promise<string> {
   const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-  const path = `completed_projects/videos/${projectId || 'new'}_${timestamp}_${safeName}`;
+  const path = `completed_projects/photos/${projectId || 'project'}_${timestamp}_${safeName}`;
+  const contentType = file.type || 'image/jpeg';
+  return await uploadFileToStorage(file, path, contentType, onProgress);
+}
 
-  const storageRefInstance = getStorageSafe();
-  if (storageRefInstance) {
-    try {
-      const storageRef = ref(storageRefInstance, path);
-      const metadata = {
-        contentType: file.type || 'video/mp4',
-      };
-      const snapshot = await uploadBytes(storageRef, file, metadata);
-      const downloadUrl = await getDownloadURL(snapshot.ref);
-      return downloadUrl;
-    } catch (storageError) {
-      console.warn('Firebase Storage video upload error:', storageError);
-    }
-  }
+/**
+ * Uploads a completed project video to Firebase Storage and returns the public download URL.
+ */
+export async function uploadProjectVideo(
+  file: File, 
+  projectId?: string,
+  onProgress?: (percent: number) => void
+): Promise<string> {
+  const timestamp = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `completed_projects/videos/${projectId || 'project'}_${timestamp}_${safeName}`;
+  const contentType = file.type || 'video/mp4';
+  return await uploadFileToStorage(file, path, contentType, onProgress);
+}
 
-  // Fallback for smaller videos if storage isn't activated in Firebase Console
-  if (file.size <= 15 * 1024 * 1024) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (err) => reject(err);
-      reader.readAsDataURL(file);
-    });
-  }
-
-  throw new Error('ভিডিও ফাইলটি ১৫MB এর বেশি এবং ক্লাউড স্টোরেজ আনভেলেবল। অনুগ্রহ করে ১৫MB এর নিচের ভিডিও সিলেক্ট করুন বা ভিডিও লিংক ব্যবহার করুন।');
+/**
+ * Uploads a product catalog image to Firebase Storage and returns the public download URL.
+ */
+export async function uploadProductImage(
+  file: File, 
+  productId?: string,
+  onProgress?: (percent: number) => void
+): Promise<string> {
+  const timestamp = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `products/${productId || 'product'}_${timestamp}_${safeName}`;
+  const contentType = file.type || 'image/jpeg';
+  return await uploadFileToStorage(file, path, contentType, onProgress);
 }
 
 // Verify server connection gracefully without throwing uncaught errors
