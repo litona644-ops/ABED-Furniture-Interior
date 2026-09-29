@@ -1,0 +1,144 @@
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+const { execSync } = require('child_process');
+
+// Exact vector reproduction of the Abed Furniture & Interior official logo
+const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Soft floor shadow for Abed text -->
+    <radialGradient id="shadowGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#222222" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#444444" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Drop shadow filter for letters -->
+    <filter id="textDropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Crisp white background for maximum contrast across all browser tabs & mobile home screens -->
+  <rect width="512" height="512" fill="#ffffff" />
+
+  <!-- ================= HOUSE ROOF ================= -->
+  <!-- Outer Brown Gable Roof -->
+  <polygon points="256,42 136,150 156,166 256,76 356,166 376,150" fill="#4d220a"/>
+
+  <!-- Pendant Lamp Hanging in Apex -->
+  <line x1="256" y1="76" x2="256" y2="120" stroke="#4d220a" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- Bell / Half-Dome Shade -->
+  <path d="M 235,135 Q 256,112 277,135 Z" fill="#4d220a"/>
+
+  <!-- ================= WALLS & FURNITURE SILHOUETTES ================= -->
+  <!-- Left Brown Wall (L-shaped extending underneath sofa) -->
+  <path d="M 152,170 L 230,170 L 230,266 L 268,266 L 268,296 L 152,296 Z" fill="#4d220a"/>
+
+  <!-- Floor Lamp Inside Left Brown Wall -->
+  <!-- Trapezoid Lamp Shade -->
+  <polygon points="179,206 203,206 209,232 173,232" fill="#ffffff"/>
+  <!-- Tripod Legs -->
+  <line x1="185" y1="232" x2="173" y2="296" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="191" y1="232" x2="191" y2="296" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="197" y1="232" x2="209" y2="296" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <!-- Cross Rung -->
+  <line x1="179" y1="262" x2="203" y2="262" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Right Orange Wall Block -->
+  <rect x="230" y="158" width="139" height="108" fill="#f58f18"/>
+
+  <!-- Modern White Sofa Cutout Inside Orange Block -->
+  <!-- Sofa Backrest Cushion -->
+  <rect x="254" y="190" width="91" height="46" rx="7" fill="#ffffff"/>
+  <!-- Left Armrest -->
+  <path d="M 238,230 C 238,222 244,218 252,218 C 260,218 262,222 262,230 L 262,266 L 238,266 Z" fill="#ffffff"/>
+  <!-- Right Armrest -->
+  <path d="M 337,230 C 337,222 339,218 347,218 C 355,218 361,222 361,230 L 361,266 L 337,266 Z" fill="#ffffff"/>
+  <!-- Seat Opening -->
+  <rect x="256" y="234" width="87" height="32" fill="#ffffff"/>
+
+  <!-- ================= TYPOGRAPHY ================= -->
+  <!-- "Abed" Title -->
+  <g filter="url(#textDropShadow)">
+    <text x="256" y="380" 
+          text-anchor="middle" 
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Trebuchet MS', Arial, sans-serif" 
+          font-weight="900" 
+          font-size="96" 
+          fill="#f6921e" 
+          stroke="#000000" 
+          stroke-width="5" 
+          stroke-linejoin="round"
+          letter-spacing="-1.5">Abed</text>
+  </g>
+
+  <!-- Ground Shadow Line -->
+  <ellipse cx="256" cy="397" rx="165" ry="3" fill="url(#shadowGrad)"/>
+
+  <!-- "Furniture & Interior" Sub-headline -->
+  <text x="256" y="427" 
+        text-anchor="middle" 
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Montserrat', Arial, sans-serif" 
+        font-weight="800" 
+        font-size="28" 
+        fill="#000000" 
+        letter-spacing="0.5">Furniture &amp; Interior</text>
+</svg>
+`;
+
+async function main() {
+  const publicDir = path.resolve(__dirname, '../public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+
+  // 1. Write official vector SVG
+  const svgPath = path.join(publicDir, 'favicon.svg');
+  fs.writeFileSync(svgPath, svgContent.trim(), 'utf8');
+  console.log('Created favicon.svg');
+
+  // Copy to logo.svg as well for general branding use
+  fs.writeFileSync(path.join(publicDir, 'logo.svg'), svgContent.trim(), 'utf8');
+  console.log('Created logo.svg');
+
+  const svgBuffer = Buffer.from(svgContent);
+
+  // 2. Generate PNG favicons
+  const sizes = [
+    { name: 'favicon-16x16.png', size: 16 },
+    { name: 'favicon-32x32.png', size: 32 },
+    { name: 'favicon-48x48.png', size: 48 },
+    { name: 'apple-touch-icon.png', size: 180 },
+    { name: 'android-chrome-192x192.png', size: 192 },
+    { name: 'android-chrome-512x512.png', size: 512 }
+  ];
+
+  for (const item of sizes) {
+    const outPath = path.join(publicDir, item.name);
+    await sharp(svgBuffer)
+      .resize(item.size, item.size)
+      .png({ quality: 100, compressionLevel: 9 })
+      .toFile(outPath);
+    console.log(`Generated ${item.name} (${item.size}x${item.size})`);
+  }
+
+  // 3. Generate multi-resolution favicon.ico using ImageMagick
+  const icoPath = path.join(publicDir, 'favicon.ico');
+  const fav16 = path.join(publicDir, 'favicon-16x16.png');
+  const fav32 = path.join(publicDir, 'favicon-32x32.png');
+  const fav48 = path.join(publicDir, 'favicon-48x48.png');
+
+  try {
+    execSync(`convert "${fav16}" "${fav32}" "${fav48}" "${icoPath}"`);
+    console.log('Generated favicon.ico (16, 32, 48)');
+  } catch (err) {
+    // Fallback: single 32x32
+    execSync(`convert "${fav32}" "${icoPath}"`);
+    console.log('Generated favicon.ico (fallback 32)');
+  }
+
+  console.log('Favicons successfully generated!');
+}
+
+main().catch(console.error);
