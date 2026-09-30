@@ -17,7 +17,9 @@ import {
   MapPin, 
   User, 
   Star, 
-  Eye, 
+  Eye,
+  EyeOff,
+  Globe,
   FolderCheck,
   AlertTriangle,
   Save,
@@ -67,13 +69,15 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
   const [coverImage, setCoverImage] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
+  const [isPublished, setIsPublished] = useState<boolean>(true);
 
-  // Upload Progress States
+  // Upload & Operation States
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState('');
   const [uploadProgressPercent, setUploadProgressPercent] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [publishingProjectId, setPublishingProjectId] = useState<string | null>(null);
 
   // Optional manual video URL input
   const [manualVideoUrl, setManualVideoUrl] = useState('');
@@ -111,6 +115,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
     setCoverImage('');
     setPhotos([]);
     setVideos([]);
+    setIsPublished(true);
     setEditingProjectId(null);
     setManualVideoUrl('');
     setShowManualVideoInput(false);
@@ -136,13 +141,56 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
     setCoverImage(project.coverImage || '');
     setPhotos(project.photos ? [...project.photos] : []);
     setVideos(project.videos ? [...project.videos] : []);
+    setIsPublished(project.isPublished !== false);
     setIsFormOpen(true);
   };
 
-  // PHOTO UPLOAD: Select files directly from phone/PC and upload to Firebase Storage with live progress
+  // Dedicated Toggle Handler for Instant Project Publish / Public Status
+  const handleTogglePublish = async (project: CompletedProject) => {
+    if (publishingProjectId) return; // Prevent duplicate clicks
+    const currentIsPublic = project.isPublished !== false;
+    const nextStatus = !currentIsPublic;
+    setPublishingProjectId(project.id);
+
+    try {
+      await ensureAuthSession();
+      const statusPayload = {
+        isPublished: nextStatus,
+        isPublic: nextStatus,
+        status: nextStatus ? 'published' : 'draft',
+        updatedAt: Date.now()
+      };
+
+      await setDoc(doc(db, 'completed_projects', project.id), statusPayload, { merge: true });
+
+      // Immediately update local state so UI updates without waiting
+      setProjects(prev => prev.map(p => p.id === project.id ? { ...p, ...statusPayload } : p));
+
+      if (nextStatus) {
+        showNotification('Project published successfully. (প্রজেক্ট সফলভাবে পাবলিক করা হয়েছে)', 'success');
+      } else {
+        showNotification('Project moved to draft. (প্রজেক্ট ড্রাফট করা হয়েছে)', 'success');
+      }
+    } catch (err: any) {
+      console.error('Failed to update project publish status:', err);
+      showNotification('Failed to publish project. Please try again. (পাবলিশ ব্যর্থ হয়েছে)', 'error');
+    } finally {
+      setPublishingProjectId(null);
+    }
+  };
+
+  // PHOTO UPLOAD: Select JPG, JPEG, PNG, WEBP directly from phone/PC and upload to Cloudinary
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    // Admin authorization check
+    try {
+      await ensureAuthSession();
+    } catch {
+      showNotification('শুধুমাত্র অনুমোদিত এডমিন আপলোড করতে পারবেন।', 'error');
+      return;
+    }
 
     setIsUploadingPhoto(true);
     setUploadProgressPercent(0);
@@ -152,12 +200,13 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
       const fileList: File[] = Array.from(files);
       for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
-        setUploadProgressText(`ছবি আপলোড হচ্ছে (${i + 1}/${fileList.length})...`);
+        setUploadProgressText(`ছবি Cloudinary-তে আপলোড হচ্ছে (${i + 1}/${fileList.length})...`);
         const url = await uploadProjectImage(
           file, 
           editingProjectId || 'project',
           (percent) => {
             setUploadProgressPercent(percent);
+            setUploadProgressText(`ছবি Cloudinary-তে আপলোড হচ্ছে (${i + 1}/${fileList.length}) - ${percent}%`);
           }
         );
         if (url) {
@@ -173,7 +222,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
         return updated;
       });
 
-      showNotification(`${newUploadedUrls.length}টি ছবি Firebase Storage এ সফলভাবে আপলোড হয়েছে!`, 'success');
+      showNotification(`${newUploadedUrls.length}টি ছবি সফলভাবে Cloudinary-তে আপলোড হয়েছে!`, 'success');
     } catch (err: any) {
       console.error('Photo upload error:', err);
       showNotification(err.message || 'ছবি আপলোডে সমস্যা হয়েছে।', 'error');
@@ -185,24 +234,40 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
     }
   };
 
-  // VIDEO UPLOAD: Select video directly from phone/PC and upload to Firebase Storage with live percentage
+  // VIDEO UPLOAD: Select 1-2 min MP4 video from phone/PC and upload directly to Cloudinary
   const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    // Admin authorization check
+    try {
+      await ensureAuthSession();
+    } catch {
+      showNotification('শুধুমাত্র অনুমোদিত এডমিন আপলোড করতে পারবেন।', 'error');
+      return;
+    }
+
     const file = files[0];
 
-    // File size check: Recommended limit < 100MB
-    const maxSizeBytes = 100 * 1024 * 1024; // 100MB
+    // File format check
+    const isMp4 = file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4');
+    if (!isMp4) {
+      showNotification('শুধুমাত্র MP4 ফরম্যাটের ভিডিও নির্বাচন করুন।', 'error');
+      if (videoInputRef.current) videoInputRef.current.value = '';
+      return;
+    }
+
+    // File size check: 100MB limit for 1-2 min HD MP4 video
+    const maxSizeBytes = 100 * 1024 * 1024;
     if (file.size > maxSizeBytes) {
-      showNotification('ভিডিও সাইজ ১০০MB এর বেশি! অনুগ্রহ করে ১০০MB এর নিচের ভিডিও ফাইল নির্বাচন করুন।', 'error');
+      showNotification('ভিডিও সাইজ ১০০MB এর বেশি! ১–২ মিনিটের MP4 ভিডিও নির্বাচন করুন।', 'error');
       if (videoInputRef.current) videoInputRef.current.value = '';
       return;
     }
 
     setIsUploadingVideo(true);
     setUploadProgressPercent(0);
-    setUploadProgressText('ভিডিও আপলোড হচ্ছে, অপেক্ষা করুন...');
+    setUploadProgressText('ভিডিও Cloudinary-তে আপলোড হচ্ছে (0%)...');
 
     try {
       const videoUrl = await uploadProjectVideo(
@@ -210,12 +275,12 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
         editingProjectId || 'project',
         (percent) => {
           setUploadProgressPercent(percent);
-          setUploadProgressText(`ভিডিও আপলোড হচ্ছে (${percent}%)...`);
+          setUploadProgressText(`ভিডিও Cloudinary-তে আপলোড হচ্ছে (${percent}%)...`);
         }
       );
       if (videoUrl) {
         setVideos(prev => [...prev, videoUrl]);
-        showNotification('প্রজেক্ট ভিডিও সফলভাবে Firebase Storage এ সংরক্ষিত হয়েছে!', 'success');
+        showNotification('প্রজেক্ট ভিডিও সফলভাবে Cloudinary-তে আপলোড হয়েছে!', 'success');
       }
     } catch (err: any) {
       console.error('Video upload error:', err);
@@ -273,6 +338,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
     if (confirmModal.actionType === 'delete_project' && confirmModal.targetId) {
       const pId = confirmModal.targetId;
       try {
+        await ensureAuthSession();
         await deleteDoc(doc(db, 'completed_projects', pId));
         setProjects(prev => prev.filter(p => p.id !== pId));
         showNotification('প্রজেক্ট সফলভাবে ডিলিট হয়েছে', 'success');
@@ -317,23 +383,40 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
 
     try {
       const projectId = editingProjectId || `project-${Date.now()}`;
-      const projectPayload: CompletedProject = {
+      const finalCover = coverImage.trim() || (photos.length > 0 ? photos[0] : 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80');
+      
+      // Clean payload - NEVER contain undefined so Firestore never rejects
+      const projectPayload: any = {
         id: projectId,
         title: title.trim(),
-        titleEn: titleEn.trim() || undefined,
+        titleEn: titleEn.trim() || '',
         category,
         clientLocation: clientLocation.trim() || 'ঢাকা, বাংলাদেশ',
         completionDate: completionDate.trim() || 'সম্পন্ন',
-        clientName: clientName.trim() || undefined,
+        clientName: clientName.trim() || '',
         description: description.trim(),
-        descriptionEn: descriptionEn.trim() || undefined,
-        coverImage: coverImage || (photos.length > 0 ? photos[0] : 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80'),
-        photos: photos,
-        videos: videos,
+        descriptionEn: descriptionEn.trim() || '',
+        coverImage: finalCover,
+        image: finalCover,
+        imgUrl: finalCover,
+        imageUrl: finalCover,
+        photos: photos.filter(Boolean),
+        gallery: photos.filter(Boolean),
+        videos: videos.filter(Boolean),
+        isPublished: isPublished,
+        isPublic: isPublished,
+        status: isPublished ? 'published' : 'draft',
         createdAt: editingProjectId 
           ? (projects.find(p => p.id === editingProjectId)?.createdAt || Date.now())
-          : Date.now()
+          : Date.now(),
+        updatedAt: Date.now()
       };
+
+      console.log('[Firestore Write] Saving project document to Firestore:', projectId, {
+        coverImage: finalCover,
+        photosCount: photos.length,
+        isPublished
+      });
 
       // Ensure active auth session for Firestore security rules
       await ensureAuthSession();
@@ -354,7 +437,9 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
       });
 
       showNotification(
-        editingProjectId ? 'প্রজেক্টের তথ্য সফলভাবে আপডেট হয়েছে!' : 'নতুন হ্যান্ডওভার প্রজেক্ট সফলভাবে যুক্ত হয়েছে!',
+        editingProjectId 
+          ? 'প্রজেক্টের তথ্য সফলভাবে আপডেট হয়েছে! (Project updated successfully)' 
+          : 'Project published successfully. (নতুন প্রজেক্ট সফলভাবে পাবলিশ করা হয়েছে)',
         'success'
       );
 
@@ -362,7 +447,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
       resetForm();
     } catch (err: any) {
       console.error('Save project error:', err);
-      showNotification('প্রজেক্ট সংরক্ষণে সমস্যা হয়েছে: ' + (err.message || 'Error'), 'error');
+      showNotification('Failed to publish project. Please try again. (' + (err.message || 'Error') + ')', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -587,8 +672,21 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                   </div>
                 )}
                 
-                <div className="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur-md text-[#fdbf5e] text-[10px] font-black uppercase px-2.5 py-1 rounded-md border border-white/10">
-                  {project.category === 'interior' ? 'ইন্টেরিয়র' : project.category === 'furniture' ? 'ফার্নিচার' : 'সম্পূর্ণ প্রজেক্ট'}
+                <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
+                  <span className="bg-black/75 backdrop-blur-md text-[#fdbf5e] text-[10px] font-black uppercase px-2.5 py-1 rounded-md border border-white/10">
+                    {project.category === 'interior' ? 'ইন্টেরিয়র' : project.category === 'furniture' ? 'ফার্নিচার' : 'সম্পূর্ণ প্রজেক্ট'}
+                  </span>
+                  {project.isPublished !== false ? (
+                    <span className="bg-emerald-600/95 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs border border-emerald-400/40">
+                      <CheckCircle className="w-3 h-3 text-emerald-200" />
+                      <span>পাবলিক</span>
+                    </span>
+                  ) : (
+                    <span className="bg-amber-600/95 text-white text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs border border-amber-400/40">
+                      <EyeOff className="w-3 h-3 text-amber-200" />
+                      <span>ড্রাফট</span>
+                    </span>
+                  )}
                 </div>
 
                 <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
@@ -640,6 +738,36 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
 
                 {/* Card Action Buttons */}
                 <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
+                  {/* Dedicated Publish / Public Status Button */}
+                  <button
+                    type="button"
+                    disabled={publishingProjectId === project.id}
+                    onClick={() => handleTogglePublish(project)}
+                    className={`font-black text-xs py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed ${
+                      project.isPublished !== false
+                        ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+                    }`}
+                    title={project.isPublished !== false ? 'ক্লিক করে আনপাবলিশ বা ড্রাফট করুন' : 'ক্লিক করে ওয়েবসাইটে পাবলিক করুন'}
+                  >
+                    {publishingProjectId === project.id ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-700" />
+                        <span className="text-[11px]">আপডেট হচ্ছে...</span>
+                      </>
+                    ) : project.isPublished !== false ? (
+                      <>
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Public (পাবলিক)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Globe className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Publish করুন</span>
+                      </>
+                    )}
+                  </button>
+
                   <button
                     onClick={() => handleOpenEditForm(project)}
                     className="flex-1 bg-amber-50 hover:bg-amber-100 text-[#966b2d] font-bold text-xs py-2 px-3 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-amber-200"
@@ -828,7 +956,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                         <span>প্রজেক্টের ছবি আপলোড (Upload Project Photos)</span>
                       </h4>
                       <p className="text-[11px] text-stone-500 mt-0.5">
-                        মোবাইল বা পিসি থেকে সরাসরি ছবি সিলেক্ট করলেই স্বয়ংক্রিয়ভাবে আপলোড হয়ে যাবে।
+                        JPG, JPEG, PNG, WEBP ছবি সরাসরি সিলেক্ট করলেই Cloudinary-তে আপলোড হয়ে যাবে।
                       </p>
                     </div>
 
@@ -836,7 +964,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                     <input 
                       ref={photoInputRef}
                       type="file"
-                      accept="image/*"
+                      accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,image/*"
                       multiple
                       onChange={handlePhotoSelect}
                       className="hidden"
@@ -867,7 +995,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                       <div className="flex items-center justify-between font-bold">
                         <div className="flex items-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin shrink-0 text-amber-600" />
-                          <span>{uploadProgressText || 'ছবিগুলো Firebase Storage এ আপলোড করা হচ্ছে...'}</span>
+                          <span>{uploadProgressText || 'ছবিগুলো Cloudinary-তে আপলোড করা হচ্ছে...'}</span>
                         </div>
                         <span className="font-mono text-amber-800 font-black">{uploadProgressPercent}%</span>
                       </div>
@@ -894,6 +1022,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                             src={url} 
                             alt={`Photo ${idx + 1}`} 
                             className="h-24 w-full object-cover"
+                            style={{ imageRendering: '-webkit-optimize-contrast' }}
                             referrerPolicy="no-referrer"
                           />
 
@@ -948,7 +1077,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                         <span>প্রজেক্টের ভিডিও আপলোড (Upload Project Video)</span>
                       </h4>
                       <p className="text-[11px] text-stone-500 mt-0.5">
-                        মোবাইল বা পিসিতে থাকা ভিডিও ফাইল সিলেক্ট করুন। (সর্বোচ্চ ৪৫MB)
+                        ১–২ মিনিটের MP4 ভিডিও সরাসরি Cloudinary-তে আপলোড করুন। (সর্বোচ্চ ১০০MB)
                       </p>
                     </div>
 
@@ -957,7 +1086,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                       <input 
                         ref={videoInputRef}
                         type="file"
-                        accept="video/*"
+                        accept=".mp4,video/mp4,video/*"
                         onChange={handleVideoSelect}
                         className="hidden"
                       />
@@ -1077,6 +1206,46 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                     )}
                   </div>
 
+                </div>
+
+                {/* 5. PUBLISH / VISIBILITY STATUS SELECTOR */}
+                <div className="bg-stone-50 p-4.5 rounded-2xl border border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h5 className="text-xs sm:text-sm font-black text-stone-900 flex items-center gap-1.5">
+                      <Globe className="w-4 h-4 text-[#a07436]" />
+                      <span>পাবলিক ভিজিবিলিটি স্ট্যাটাস (Public Status)</span>
+                    </h5>
+                    <p className="text-[11px] text-stone-500 font-medium mt-0.5">
+                      পাবলিক থাকলে ওয়েবসাইট ভিজিটররা হ্যান্ডওভার প্রজেক্ট গ্যালারিতে সরাসরি এটি দেখতে পাবেন।
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsPublished(true)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer transition-all border ${
+                        isPublished
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                          : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-100'
+                      }`}
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Public (পাবলিক)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsPublished(false)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer transition-all border ${
+                        !isPublished
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                          : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-100'
+                      }`}
+                    >
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Draft (ড্রাফট)</span>
+                    </button>
+                  </div>
                 </div>
 
               </form>

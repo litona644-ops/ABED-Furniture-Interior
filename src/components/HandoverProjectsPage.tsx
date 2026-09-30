@@ -49,6 +49,8 @@ export const HandoverProjectsPage: React.FC<HandoverProjectsPageProps> = ({
   const [activeMediaType, setActiveMediaType] = useState<'photo' | 'video'>('photo');
 
   const filteredProjects = projects.filter((project) => {
+    // Only display published projects to public website visitors (drafts remain admin-only)
+    if (project.isPublished === false) return false;
     if (selectedCategory === 'all') return true;
     return project.category === selectedCategory;
   });
@@ -198,7 +200,13 @@ export const HandoverProjectsPage: React.FC<HandoverProjectsPageProps> = ({
               const badge = getCategoryBadge(project.category);
               const photoCount = project.photos ? project.photos.length : 0;
               const videoCount = project.videos ? project.videos.length : 0;
-              const coverImg = project.coverImage || (project.photos && project.photos[0]) || '';
+              const coverImg = 
+                project.coverImage || 
+                (project as any).image || 
+                (project as any).imgUrl || 
+                (project.photos && project.photos.find((p: string) => !!p)) || 
+                ((project as any).gallery && (project as any).gallery.find((g: string) => !!g)) || 
+                '';
 
               return (
                 <motion.div
@@ -217,7 +225,12 @@ export const HandoverProjectsPage: React.FC<HandoverProjectsPageProps> = ({
                       <img
                         src={coverImg}
                         alt={project.title}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                        style={{ 
+                          imageRendering: '-webkit-optimize-contrast',
+                          WebkitBackfaceVisibility: 'hidden',
+                          transform: 'translateZ(0)'
+                        }}
                         referrerPolicy="no-referrer"
                       />
                     ) : (
@@ -419,15 +432,15 @@ export const HandoverProjectsPage: React.FC<HandoverProjectsPageProps> = ({
               </div>
 
               {/* Modal Media Showcase Screen */}
-              <div className="relative bg-black flex items-center justify-center min-h-[280px] sm:min-h-[420px] max-h-[500px] overflow-hidden">
+              <div className="relative bg-black flex items-center justify-center min-h-[350px] sm:min-h-[500px] md:min-h-[580px] max-h-[78vh] overflow-hidden p-2 sm:p-4">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={`${activeMediaType}-${activeMediaIndex}`}
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 1.02 }}
-                    transition={{ duration: 0.2 }}
-                    className="w-full h-full flex items-center justify-center max-h-[500px]"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="w-full h-full flex items-center justify-center"
                   >
                     {activeMediaType === 'video' && activeProject.videos && activeProject.videos[activeMediaIndex] ? (
                       <video
@@ -435,13 +448,19 @@ export const HandoverProjectsPage: React.FC<HandoverProjectsPageProps> = ({
                         controls
                         autoPlay
                         playsInline
-                        className="w-full h-full max-h-[500px] object-contain"
+                        className="max-h-[72vh] max-w-full w-auto h-auto object-contain rounded-lg"
                       />
                     ) : activeProject.photos && activeProject.photos[activeMediaIndex] ? (
                       <img
                         src={activeProject.photos[activeMediaIndex]}
                         alt={`${activeProject.title} ${activeMediaIndex + 1}`}
-                        className="w-full h-full max-h-[500px] object-contain select-none"
+                        className="max-h-[72vh] w-full h-full object-contain select-none mx-auto rounded-lg shadow-2xl transition-all"
+                        style={{ 
+                          imageRendering: '-webkit-optimize-contrast',
+                          WebkitBackfaceVisibility: 'hidden',
+                          transform: 'translateZ(0)'
+                        }}
+                        decoding="sync"
                         referrerPolicy="no-referrer"
                       />
                     ) : (
@@ -452,6 +471,20 @@ export const HandoverProjectsPage: React.FC<HandoverProjectsPageProps> = ({
                     )}
                   </motion.div>
                 </AnimatePresence>
+
+                {/* View Full Original Photo (HD) Link */}
+                {activeMediaType === 'photo' && activeProject.photos && activeProject.photos[activeMediaIndex] && (
+                  <a
+                    href={activeProject.photos[activeMediaIndex]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute top-3 right-3 bg-black/75 hover:bg-black text-amber-300 hover:text-white text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/20 backdrop-blur-md flex items-center gap-1.5 transition-all shadow-md z-20 cursor-pointer"
+                    title="আসল ফুল কোয়ালিটি ছবি নতুন ট্যাবে দেখুন"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5 text-[#fdbf5e]" />
+                    <span>আসল ছবি (HD)</span>
+                  </a>
+                )}
 
                 {/* Left / Right Nav Arrows for Photos */}
                 {activeMediaType === 'photo' && activeProject.photos && activeProject.photos.length > 1 && (

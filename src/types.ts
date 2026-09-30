@@ -48,4 +48,8 @@ export interface CompletedProject {
   videos: string[];
   clientName?: string;
   createdAt?: number;
+  updatedAt?: number;
+  isPublished?: boolean;
+  isPublic?: boolean;
+  status?: 'published' | 'draft';
 }

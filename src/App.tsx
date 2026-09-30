@@ -41,7 +41,8 @@ import {
   Globe,
   ExternalLink,
   Share2,
-  FileCheck
+  FileCheck,
+  Maximize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PRODUCTS, DEFAULT_COMPLETED_PROJECTS } from './data';
@@ -274,6 +275,9 @@ export default function App() {
 
   // Real-time Firestore sync for products catalog
   useEffect(() => {
+    // Automatically ensure active auth session on app mount
+    ensureAuthSession().catch((e) => console.warn('Auth init note:', e));
+
     const unsubscribe = onSnapshot(
       collection(db, 'products'),
       (snapshot) => {
@@ -281,13 +285,31 @@ export default function App() {
           const loaded: Product[] = [];
           snapshot.forEach((docSnap) => {
             const data = docSnap.data();
+            const primaryImg = 
+              data.imgUrl || 
+              data.image || 
+              data.imageUrl || 
+              data.coverImage || 
+              (Array.isArray(data.images) && data.images.find(Boolean)) || 
+              (Array.isArray(data.gallery) && data.gallery.find(Boolean)) || 
+              (Array.isArray(data.photos) && data.photos.find(Boolean)) || 
+              'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80';
+            
+            const allImages: string[] = Array.isArray(data.images) && data.images.length > 0
+              ? data.images
+              : Array.isArray(data.gallery) && data.gallery.length > 0
+                ? data.gallery
+                : Array.isArray(data.photos) && data.photos.length > 0
+                  ? data.photos
+                  : (primaryImg ? [primaryImg] : []);
+
             loaded.push({
               id: docSnap.id,
               nameEn: data.nameEn || '',
               nameBn: data.nameBn || '',
               category: (data.category as Category) || 'furniture',
-              imgUrl: data.imgUrl || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
-              images: Array.isArray(data.images) ? data.images : (data.imgUrl ? [data.imgUrl] : []),
+              imgUrl: primaryImg,
+              images: allImages,
               priceRangeEn: data.priceRangeEn || '',
               priceRangeBn: data.priceRangeBn || '',
               minPrice: typeof data.minPrice === 'number' ? data.minPrice : 10000,
@@ -363,19 +385,51 @@ export default function App() {
     const unsubscribe = onSnapshot(
       collection(db, 'completed_projects'),
       (snapshot) => {
+        const loaded: CompletedProject[] = [];
         if (!snapshot.empty) {
-          const loaded: CompletedProject[] = [];
           snapshot.forEach((docSnap) => {
             const data = docSnap.data();
+            const cover = 
+              data.coverImage || 
+              data.image || 
+              data.imgUrl || 
+              data.imageUrl || 
+              (Array.isArray(data.photos) && data.photos.find(Boolean)) || 
+              (Array.isArray(data.gallery) && data.gallery.find(Boolean)) || 
+              'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80';
+
+            const photosList: string[] = Array.isArray(data.photos) && data.photos.length > 0
+              ? data.photos.filter(Boolean)
+              : Array.isArray(data.gallery) && data.gallery.length > 0
+                ? data.gallery.filter(Boolean)
+                : typeof data.photos === 'string' && data.photos.trim()
+                  ? [data.photos.trim()]
+                  : cover ? [cover] : [];
+
+            const videosList: string[] = Array.isArray(data.videos)
+              ? data.videos.filter(Boolean)
+              : typeof data.video === 'string' && data.video.trim()
+                ? [data.video.trim()]
+                : typeof (data as any).videoUrl === 'string' && (data as any).videoUrl.trim()
+                  ? [(data as any).videoUrl.trim()]
+                  : [];
+
             loaded.push({
               id: docSnap.id,
-              ...data
+              ...data,
+              coverImage: cover,
+              photos: photosList,
+              videos: videosList,
+              isPublished: data.isPublished !== false,
+              isPublic: data.isPublished !== false,
+              status: data.isPublished !== false ? 'published' : 'draft',
             } as CompletedProject);
           });
           loaded.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-          setCompletedProjects(loaded);
-          localStorage.setItem('abed_completed_projects', JSON.stringify(loaded));
         }
+        console.log('[Firestore Read] Completed projects updated in React state:', loaded.length, 'projects');
+        setCompletedProjects(loaded);
+        localStorage.setItem('abed_completed_projects', JSON.stringify(loaded));
       },
       (error) => {
         console.warn('Firestore completed_projects listener note:', error);
@@ -651,7 +705,17 @@ export default function App() {
 
   const handleProductCreate = async (newProduct: Product) => {
     try {
-      await setDoc(doc(db, 'products', newProduct.id), newProduct);
+      await ensureAuthSession();
+      const payload = {
+        ...newProduct,
+        imgUrl: newProduct.imgUrl,
+        image: newProduct.imgUrl,         // compatibility with 'image'
+        imageUrl: newProduct.imgUrl,      // compatibility with 'imageUrl'
+        coverImage: newProduct.imgUrl,    // compatibility with 'coverImage'
+        images: newProduct.images || (newProduct.imgUrl ? [newProduct.imgUrl] : []),
+        gallery: newProduct.images || (newProduct.imgUrl ? [newProduct.imgUrl] : []) // compatibility with 'gallery'
+      };
+      await setDoc(doc(db, 'products', newProduct.id), payload);
       setProducts(prev => [newProduct, ...prev.filter(p => p.id !== newProduct.id)]);
       localStorage.setItem('abed_products', JSON.stringify([newProduct, ...products.filter(p => p.id !== newProduct.id)]));
       showNotification('নতুন পণ্যটি সফলভাবে ক্লাউড ফায়ারবেসে যুক্ত করা হয়েছে!');
@@ -664,7 +728,17 @@ export default function App() {
 
   const handleProductUpdate = async (updatedProduct: Product) => {
     try {
-      await setDoc(doc(db, 'products', updatedProduct.id), updatedProduct, { merge: true });
+      await ensureAuthSession();
+      const payload = {
+        ...updatedProduct,
+        imgUrl: updatedProduct.imgUrl,
+        image: updatedProduct.imgUrl,         // compatibility with 'image'
+        imageUrl: updatedProduct.imgUrl,      // compatibility with 'imageUrl'
+        coverImage: updatedProduct.imgUrl,    // compatibility with 'coverImage'
+        images: updatedProduct.images || (updatedProduct.imgUrl ? [updatedProduct.imgUrl] : []),
+        gallery: updatedProduct.images || (updatedProduct.imgUrl ? [updatedProduct.imgUrl] : []) // compatibility with 'gallery'
+      };
+      await setDoc(doc(db, 'products', updatedProduct.id), payload, { merge: true });
       setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
       localStorage.setItem('abed_products', JSON.stringify(products.map(p => p.id === updatedProduct.id ? updatedProduct : p)));
       showNotification('পণ্যটির তথ্য সফলভাবে ক্লাউড ফায়ারবেসে আপডেট করা হয়েছে!');
@@ -677,6 +751,7 @@ export default function App() {
 
   const handleProductDelete = async (id: string, nameBn: string) => {
     try {
+      await ensureAuthSession();
       await deleteDoc(doc(db, 'products', id));
       setProducts(prev => prev.filter(p => p.id !== id));
       localStorage.setItem('abed_products', JSON.stringify(products.filter(p => p.id !== id)));
@@ -1152,7 +1227,12 @@ export default function App() {
                   <img
                     src={product.imgUrl}
                     alt={product.nameEn}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                    style={{ 
+                      imageRendering: '-webkit-optimize-contrast',
+                      WebkitBackfaceVisibility: 'hidden',
+                      transform: 'translateZ(0)'
+                    }}
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-[#1a1200]/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -2514,11 +2594,17 @@ export default function App() {
 
               <div className="flex flex-col md:flex-row items-stretch">
                 {/* Product Image */}
-                <div className="md:w-1/2 min-h-[320px] relative bg-stone-100">
+                <div className="md:w-1/2 min-h-[320px] md:min-h-[440px] relative bg-stone-950 flex items-center justify-center p-3">
                   <img 
-                    src={selectedProduct.imgUrl} 
+                    src={activeModalImage || selectedProduct.imgUrl} 
                     alt={selectedProduct.nameEn} 
-                    className="w-full h-full object-cover"
+                    className="max-h-[420px] w-full h-full object-contain select-none mx-auto rounded-xl shadow-lg transition-all"
+                    style={{ 
+                      imageRendering: '-webkit-optimize-contrast',
+                      WebkitBackfaceVisibility: 'hidden',
+                      transform: 'translateZ(0)'
+                    }}
+                    decoding="sync"
                     referrerPolicy="no-referrer"
                   />
                   {selectedProduct.isTrending && (
@@ -2527,6 +2613,18 @@ export default function App() {
                       আজকের হট কালেকশন
                     </div>
                   )}
+
+                  {/* View Full Original Photo button */}
+                  <a
+                    href={activeModalImage || selectedProduct.imgUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute bottom-3 right-3 bg-black/75 hover:bg-black text-amber-300 hover:text-white text-[10px] font-bold px-3 py-1.5 rounded-full border border-white/20 backdrop-blur-md flex items-center gap-1.5 transition-all shadow-md z-10"
+                    title="আসল ফুল কোয়ালিটি ছবি নতুন ট্যাবে দেখুন"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5 text-[#fdbf5e]" />
+                    <span>আসল ছবি (HD)</span>
+                  </a>
                 </div>
 
                 {/* Specs breakdown */}

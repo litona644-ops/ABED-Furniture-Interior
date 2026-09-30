@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Category } from '../types';
-import { uploadProductImage } from '../lib/firebase';
+import { uploadProductImage, ensureAuthSession } from '../lib/firebase';
 
 interface AdminProductManagerProps {
   products: Product[];
@@ -132,14 +132,22 @@ export default function AdminProductManager({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      showNotification('অনুগ্রহ করে একটি সঠিক ইমেজ ফাইল (JPG, PNG, WebP) নির্বাচন করুন।', 'error');
+    // Admin authorization check
+    try {
+      await ensureAuthSession();
+    } catch {
+      showNotification('শুধুমাত্র অনুমোদিত এডমিন আপলোড করতে পারবেন।', 'error');
       return;
     }
 
-    // Max 15MB file size check
-    if (file.size > 15 * 1024 * 1024) {
-      showNotification('ছবির আকার ১৫ মেগাবাইট এর বেশি হতে পারবে না।', 'error');
+    if (!file.type.startsWith('image/')) {
+      showNotification('অনুগ্রহ করে একটি সঠিক ইমেজ ফাইল (JPG, JPEG, PNG, WebP) নির্বাচন করুন।', 'error');
+      return;
+    }
+
+    // Max 25MB file size check
+    if (file.size > 25 * 1024 * 1024) {
+      showNotification('ছবির আকার ২৫ মেগাবাইট এর বেশি হতে পারবে না।', 'error');
       return;
     }
 
@@ -160,7 +168,7 @@ export default function AdminProductManager({
         return prev;
       });
 
-      showNotification('ছবিটি সফলভাবে Firebase Storage এ আপলোড হয়েছে!');
+      showNotification('ছবিটি সফলভাবে Cloudinary-তে আপলোড হয়েছে!');
     } catch (err: any) {
       console.error('Image upload error:', err);
       showNotification(err?.message || 'ছবি আপলোডে সমস্যা হয়েছে।', 'error');
@@ -175,6 +183,14 @@ export default function AdminProductManager({
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    // Admin authorization check
+    try {
+      await ensureAuthSession();
+    } catch {
+      showNotification('শুধুমাত্র অনুমোদিত এডমিন আপলোড করতে পারবেন।', 'error');
+      return;
+    }
 
     setIsUploading(true);
     try {
@@ -192,7 +208,7 @@ export default function AdminProductManager({
         setPrimaryImgUrl(urls[0]);
       }
 
-      showNotification(`${urls.length} টি অতিরিক্ত ছবি সফলভাবে Firebase Storage এ আপলোড করা হয়েছে!`);
+      showNotification(`${urls.length} টি অতিরিক্ত ছবি সফলভাবে Cloudinary-তে আপলোড করা হয়েছে!`);
     } catch (err: any) {
       console.error('Gallery upload error:', err);
       showNotification(err?.message || 'অতিরিক্ত ছবি আপলোডে সমস্যা হয়েছে।', 'error');
@@ -469,7 +485,8 @@ export default function AdminProductManager({
                       <img 
                         src={primaryImgUrl} 
                         alt="Preview" 
-                        className="w-full h-full object-cover" 
+                        className="w-full h-full object-contain p-2" 
+                        style={{ imageRendering: '-webkit-optimize-contrast' }}
                         referrerPolicy="no-referrer"
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
@@ -524,7 +541,7 @@ export default function AdminProductManager({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,image/*"
                     onChange={handlePrimaryFileSelect}
                     className="hidden"
                   />
@@ -543,7 +560,7 @@ export default function AdminProductManager({
                   <input
                     ref={galleryFileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,image/*"
                     multiple
                     onChange={handleGalleryFileSelect}
                     className="hidden"

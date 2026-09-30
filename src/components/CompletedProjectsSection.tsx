@@ -143,7 +143,13 @@ export const CompletedProjectsSection: React.FC<CompletedProjectsSectionProps> =
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
           {filteredProjects.map((project, idx) => {
             const badge = getCategoryBadge(project.category);
-            const coverImg = project.coverImage || (project.photos && project.photos[0]) || 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80';
+            const coverImg = 
+              project.coverImage || 
+              (project as any).image || 
+              (project as any).imgUrl || 
+              (project.photos && project.photos.find((p: string) => !!p)) || 
+              ((project as any).gallery && (project as any).gallery.find((g: string) => !!g)) || 
+              'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80';
             const totalPhotos = project.photos ? project.photos.length : 0;
             const totalVideos = project.videos ? project.videos.length : 0;
 
@@ -159,14 +165,18 @@ export const CompletedProjectsSection: React.FC<CompletedProjectsSectionProps> =
                 {/* Media Preview Box */}
                 <div 
                   onClick={() => handleOpenModal(project)}
-                  className="relative h-60 w-full overflow-hidden bg-stone-900 cursor-pointer"
+                  className="relative h-64 sm:h-72 w-full overflow-hidden bg-stone-900 cursor-pointer"
                 >
                   <img
                     src={coverImg}
                     alt={project.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                    style={{ 
+                      imageRendering: '-webkit-optimize-contrast',
+                      WebkitBackfaceVisibility: 'hidden',
+                      transform: 'translateZ(0)'
+                    }}
                     referrerPolicy="no-referrer"
-                    loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
 
@@ -350,13 +360,19 @@ export const CompletedProjectsSection: React.FC<CompletedProjectsSectionProps> =
                   )}
 
                   {/* Main Media Player / Photo Screen */}
-                  <div className="relative bg-black rounded-2xl overflow-hidden min-h-[300px] max-h-[460px] flex items-center justify-center border border-stone-800">
+                  <div className="relative bg-black rounded-2xl overflow-hidden min-h-[350px] sm:min-h-[480px] md:min-h-[560px] max-h-[75vh] flex items-center justify-center border border-stone-800 p-2 sm:p-4">
                     {activeMediaType === 'photo' && activeProject.photos && activeProject.photos.length > 0 ? (
                       <>
                         <img
                           src={activeProject.photos[activeMediaIndex] || activeProject.coverImage}
                           alt={`${activeProject.title} photo ${activeMediaIndex + 1}`}
-                          className="max-h-[460px] w-full object-contain"
+                          className="max-h-[70vh] w-full h-full object-contain mx-auto select-none rounded-lg shadow-2xl transition-all duration-300"
+                          style={{ 
+                            imageRendering: '-webkit-optimize-contrast',
+                            WebkitBackfaceVisibility: 'hidden',
+                            transform: 'translateZ(0)'
+                          }}
+                          decoding="sync"
                           referrerPolicy="no-referrer"
                         />
                         {/* Navigation Arrows if multiple photos */}
@@ -381,6 +397,17 @@ export const CompletedProjectsSection: React.FC<CompletedProjectsSectionProps> =
                             </div>
                           </>
                         )}
+                        {/* Full Size Original View button */}
+                        <a
+                          href={activeProject.photos[activeMediaIndex] || activeProject.coverImage}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute top-3 right-3 bg-black/70 hover:bg-black text-amber-300 hover:text-white text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/20 backdrop-blur-md flex items-center gap-1.5 transition-all shadow-md"
+                          title="আসল ফুল কোয়ালিটি ছবি নতুন ট্যাবে দেখুন"
+                        >
+                          <Maximize2 className="w-3.5 h-3.5 text-[#fdbf5e]" />
+                          <span>আসল ছবি (HD)</span>
+                        </a>
                       </>
                     ) : activeMediaType === 'video' && activeProject.videos && activeProject.videos.length > 0 ? (
                       <div className="w-full h-full flex flex-col items-center justify-center">
@@ -389,7 +416,7 @@ export const CompletedProjectsSection: React.FC<CompletedProjectsSectionProps> =
                           src={activeProject.videos[activeMediaIndex]}
                           controls
                           playsInline
-                          className="max-h-[460px] w-full bg-black"
+                          className="max-h-[70vh] max-w-full w-auto h-auto bg-black rounded-lg"
                         >
                           আপনার ব্রাউজার ভিডিওটি প্লে করতে পারছে না।
                         </video>
