@@ -275,9 +275,6 @@ export default function App() {
 
   // Real-time Firestore sync for products catalog
   useEffect(() => {
-    // Automatically ensure active auth session on app mount
-    ensureAuthSession().catch((e) => console.warn('Auth init note:', e));
-
     const unsubscribe = onSnapshot(
       collection(db, 'products'),
       (snapshot) => {
@@ -536,13 +533,16 @@ export default function App() {
     }
   }, [successTarget, pendingTarget, isAdminUnlocked]);
 
-  // Firebase Authentication state listener
+  // Firebase Authentication state listener - strictly require active admin login session
   useEffect(() => {
+    const isExplicitlyLoggedIn = sessionStorage.getItem('abed_admin_logged_in') === 'true';
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+      // Only unlock if admin explicitly logged in during this active browser session
+      if (user && isExplicitlyLoggedIn && user.email) {
         setIsAdminUnlocked(true);
         setPasscodeError(false);
-        if (user.email) setAdminEmail(user.email);
+        setAdminEmail(user.email);
       } else {
         setIsAdminUnlocked(false);
       }
@@ -598,10 +598,16 @@ export default function App() {
 
     // 1. Direct Master Passcode Verification (instant bypass for authorized master key)
     if (cleanPassword === adminMasterPasscode || cleanPassword === 'abed2026') {
+      try {
+        await signInWithEmailAndPassword(auth, 'admin@abedfurniture.com', 'abed2026');
+      } catch (authErr) {
+        console.warn('Auth note:', authErr);
+      }
+      sessionStorage.setItem('abed_admin_logged_in', 'true');
       setIsAdminUnlocked(true);
+      setShowAdminPanel(true);
       setPasscodeError(false);
       setFailedAttempts(0);
-      ensureAuthSession();
       showNotification('মাস্টার পাসকোড সফল! এডমিন প্যানেল আনলক হয়েছে।');
       seedFirestoreIfEmpty();
       return;
@@ -615,7 +621,9 @@ export default function App() {
 
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+      sessionStorage.setItem('abed_admin_logged_in', 'true');
       setIsAdminUnlocked(true);
+      setShowAdminPanel(true);
       setPasscodeError(false);
       setFailedAttempts(0);
       showNotification('এডমিন হিসেবে সফলভাবে ফায়ারবেসে লগইন হয়েছেন!');
@@ -663,14 +671,16 @@ export default function App() {
     }
   };
 
-  // Admin Logout
+  // Admin Logout - completely locks and closes the panel
   const handleAdminLogout = async () => {
+    sessionStorage.removeItem('abed_admin_logged_in');
     try {
       await signOut(auth);
     } catch (e) {
       console.error('Sign out error:', e);
     }
     setIsAdminUnlocked(false);
+    setShowAdminPanel(false);
     setAdminPassword('');
     setShowPassword(false);
     showNotification('এডমিন প্যানেলটি সুরক্ষিতভাবে লক করে সেশন সাইনআউট সম্পন্ন হয়েছে!');
@@ -1549,11 +1559,12 @@ export default function App() {
                 </h4>
               </div>
               <button 
-                onClick={() => setShowAdminPanel(false)}
+                onClick={handleAdminLogout}
                 className="text-xs text-stone-600 hover:text-stone-950 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#d4a762]/10 hover:bg-stone-100 bg-white shadow-xs cursor-pointer animate-fade-in"
+                title="প্যানেলটি বন্ধ এবং লক করুন"
               >
                 <X className="w-4 h-4 text-stone-600" />
-                <span>প্যানেলটি বন্ধ করুন (Hide Section)</span>
+                <span>প্যানেলটি বন্ধ ও লক করুন (Close & Lock)</span>
               </button>
             </div>
             

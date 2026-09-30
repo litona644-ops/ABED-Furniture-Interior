@@ -106,6 +106,8 @@ async function main() {
 
   // 2. Generate PNG favicons
   const sizes = [
+    { name: 'favicon.png', size: 192 },
+    { name: 'logo.png', size: 512 },
     { name: 'favicon-16x16.png', size: 16 },
     { name: 'favicon-32x32.png', size: 32 },
     { name: 'favicon-48x48.png', size: 48 },
