@@ -51,6 +51,23 @@ import ProjectStatsChart from './components/ProjectStatsChart';
 import AdminProductManager from './components/AdminProductManager';
 import { HandoverProjectsPage } from './components/HandoverProjectsPage';
 import { AdminProjectManager } from './components/AdminProjectManager';
+import { MaintenancePage } from './components/MaintenancePage';
+import { AdminDashboardPage } from './components/AdminDashboardPage';
+import { 
+  supabase, 
+  isSupabaseConfigured,
+  fetchProductsFromSupabase,
+  saveProductToSupabase,
+  deleteProductFromSupabase,
+  fetchProjectsFromSupabase,
+  fetchSiteSettingsFromSupabase,
+  saveSiteSettingsToSupabase,
+  fetchProjectStatsFromSupabase,
+  saveProjectStatsToSupabase,
+  mapRowToProduct,
+  mapRowToProject,
+  mapRowToSiteSettings
+} from './lib/supabase';
 import { auth, db, ensureAuthSession } from './lib/firebase';
 import { 
   signInWithEmailAndPassword, 
@@ -98,6 +115,7 @@ const DEFAULT_SETTINGS = {
   seoTitle: 'আবেদ ফার্ণিচার ও ইন্টেরিয়র | Abed Furniture & Interior Design Dhaka',
   metaDescription: 'প্রিমিয়াম মেহগনি ও সেগুন কাঠের ফার্ণিচার এবং আধুনিক হোম ইন্টেরিয়র ডিজাইন সার্ভিস। গেন্ডারিয়া, ঢাকা।',
   seoKeywords: 'আবেদ ফার্ণিচার, আবেদ ইন্টেরিয়র, Abed Furniture, Abed Interior, Furniture Shop Dhaka, Interior Design Bangladesh, সেগুন কাঠের ফার্ণিচার, মেহগনি ফার্নিচার, Gandaria Dhaka Furniture, Modern Interior Design, Wood Craftsman Liton Ali, Luxury Furniture Dhaka',
+  isMaintenanceMode: false,
 };
 
 export default function App() {
@@ -175,11 +193,14 @@ export default function App() {
     return DEFAULT_COMPLETED_PROJECTS;
   });
 
-  // Dedicated routing view state: 'home' | 'handover-projects'
-  const [currentView, setCurrentView] = useState<'home' | 'handover-projects'>(() => {
+  // Dedicated routing view state: 'home' | 'handover-projects' | 'admin'
+  const [currentView, setCurrentView] = useState<'home' | 'handover-projects' | 'admin'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
       const hash = window.location.hash;
+      if (path === '/admin' || hash === '#admin') {
+        return 'admin';
+      }
       if (path === '/handover-projects' || hash === '#handover-projects') {
         return 'handover-projects';
       }
@@ -187,9 +208,11 @@ export default function App() {
     return 'home';
   });
 
-  const navigateTo = (view: 'home' | 'handover-projects') => {
+  const navigateTo = (view: 'home' | 'handover-projects' | 'admin') => {
     setCurrentView(view);
-    if (view === 'handover-projects') {
+    if (view === 'admin') {
+      window.history.pushState({ view: 'admin' }, '', '/admin');
+    } else if (view === 'handover-projects') {
       window.history.pushState({ view: 'handover-projects' }, '', '/handover-projects');
     } else {
       window.history.pushState({ view: 'home' }, '', '/');
@@ -201,7 +224,9 @@ export default function App() {
     const handlePopState = () => {
       const path = window.location.pathname;
       const hash = window.location.hash;
-      if (path === '/handover-projects' || hash === '#handover-projects') {
+      if (path === '/admin' || hash === '#admin') {
+        setCurrentView('admin');
+      } else if (path === '/handover-projects' || hash === '#handover-projects') {
         setCurrentView('handover-projects');
       } else {
         setCurrentView('home');
@@ -212,6 +237,57 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Persistent Maintenance Mode State
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('abed_maintenance_mode');
+    if (saved !== null) {
+      return saved === 'true';
+    }
+    return Boolean(siteSettings.isMaintenanceMode);
+  });
+
+  useEffect(() => {
+    if (siteSettings.isMaintenanceMode !== undefined) {
+      setIsMaintenanceMode(Boolean(siteSettings.isMaintenanceMode));
+      localStorage.setItem('abed_maintenance_mode', String(Boolean(siteSettings.isMaintenanceMode)));
+    }
+  }, [siteSettings.isMaintenanceMode]);
+
+  const handleToggleMaintenanceMode = async (newVal: boolean) => {
+    setIsMaintenanceMode(newVal);
+    localStorage.setItem('abed_maintenance_mode', String(newVal));
+    const updatedSettings = {
+      ...siteSettings,
+      isMaintenanceMode: newVal
+    };
+    setSiteSettings(updatedSettings);
+
+    try {
+      // 1. Save to Supabase
+      try {
+        await saveSiteSettingsToSupabase(updatedSettings);
+      } catch (sbErr) {
+        console.warn('Supabase maintenance toggle note:', sbErr);
+      }
+
+      // 2. Save to Firebase
+      try {
+        await setDoc(doc(db, 'site_settings', 'current'), updatedSettings, { merge: true });
+      } catch (fbErr) {
+        console.warn('Firebase maintenance toggle note:', fbErr);
+      }
+
+      if (newVal) {
+        showNotification('মেইনটেন্যান্স মোড অন করা হয়েছে (Website Under Maintenance)!', 'success');
+      } else {
+        showNotification('ওয়েবসাইট পুনরায় লাইভ করা হয়েছে (Website Live)!', 'success');
+      }
+    } catch (err: any) {
+      console.error('Failed to toggle maintenance mode:', err);
+      showNotification('মেইনটেন্যান্স মোড সেভ করতে সমস্যা হয়েছে।', 'error');
+    }
+  };
+
   // Dynamic SEO & Metadata synchronization for Browser Title, OpenGraph, Canonical & Meta tags
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -221,7 +297,11 @@ export default function App() {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://abedfurniture.com';
     let pageUrl = baseUrl + '/';
 
-    if (currentView === 'handover-projects') {
+    if (currentView === 'admin') {
+      pageTitle = `Admin Dashboard – ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Furniture'}`;
+      pageDesc = 'Abed Furniture & Interior Private Management Portal';
+      pageUrl = baseUrl + '/admin';
+    } else if (currentView === 'handover-projects') {
       pageTitle = `${siteSettings.handoverPageTitle || 'Our Handover Projects'} – ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Furniture & Interior'}`;
       pageDesc = siteSettings.handoverPageDesc || 'আমাদের সম্মানিত গ্রাহকদের সফলভাবে বুঝিয়ে দেওয়া প্রিমিয়াম আসবাবপত্র ও এক্সক্লুসিভ হোম ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম।';
       pageUrl = baseUrl + '/handover-projects';
@@ -273,8 +353,32 @@ export default function App() {
     siteSettings.handoverPageDesc
   ]);
 
-  // Real-time Firestore sync for products catalog
+  // Real-time Database sync for products catalog (Supabase Primary, Firestore Fallback)
   useEffect(() => {
+    if (isSupabaseConfigured && supabase) {
+      fetchProductsFromSupabase().then((items) => {
+        if (items && items.length > 0) {
+          setProducts(items);
+          localStorage.setItem('abed_products', JSON.stringify(items));
+        }
+      }).catch((e) => console.warn('Supabase products init note:', e));
+
+      const channel = supabase
+        .channel('realtime_products')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async () => {
+          const fresh = await fetchProductsFromSupabase();
+          if (fresh && fresh.length > 0) {
+            setProducts(fresh);
+            localStorage.setItem('abed_products', JSON.stringify(fresh));
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+
     const unsubscribe = onSnapshot(
       collection(db, 'products'),
       (snapshot) => {
@@ -330,8 +434,38 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Real-time Firestore sync for site settings
+  // Real-time Database sync for site settings (Supabase Primary, Firestore Fallback)
   useEffect(() => {
+    if (isSupabaseConfigured && supabase) {
+      fetchSiteSettingsFromSupabase().then((settings) => {
+        if (settings && Object.keys(settings).length > 0) {
+          setSiteSettings((prev: typeof DEFAULT_SETTINGS) => {
+            const merged = { ...prev, ...settings };
+            localStorage.setItem('abed_settings', JSON.stringify(merged));
+            return merged;
+          });
+        }
+      }).catch((e) => console.warn('Supabase site_settings init note:', e));
+
+      const channel = supabase
+        .channel('realtime_site_settings')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, async () => {
+          const fresh = await fetchSiteSettingsFromSupabase();
+          if (fresh && Object.keys(fresh).length > 0) {
+            setSiteSettings((prev: typeof DEFAULT_SETTINGS) => {
+              const merged = { ...prev, ...fresh };
+              localStorage.setItem('abed_settings', JSON.stringify(merged));
+              return merged;
+            });
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+
     const unsubscribe = onSnapshot(
       doc(db, 'site_settings', 'current'),
       (docSnap) => {
@@ -352,8 +486,36 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Real-time Firestore sync for project statistics
+  // Real-time Database sync for project statistics (Supabase Primary, Firestore Fallback)
   useEffect(() => {
+    if (isSupabaseConfigured && supabase) {
+      fetchProjectStatsFromSupabase().then((stats) => {
+        if (stats) {
+          setSuccessTarget(stats.successTarget);
+          setPendingTarget(stats.pendingTarget);
+          localStorage.setItem('abed_success_target', stats.successTarget.toString());
+          localStorage.setItem('abed_pending_target', stats.pendingTarget.toString());
+        }
+      }).catch((e) => console.warn('Supabase project_stats init note:', e));
+
+      const channel = supabase
+        .channel('realtime_project_stats')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'project_stats' }, async () => {
+          const fresh = await fetchProjectStatsFromSupabase();
+          if (fresh) {
+            setSuccessTarget(fresh.successTarget);
+            setPendingTarget(fresh.pendingTarget);
+            localStorage.setItem('abed_success_target', fresh.successTarget.toString());
+            localStorage.setItem('abed_pending_target', fresh.pendingTarget.toString());
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+
     const unsubscribe = onSnapshot(
       doc(db, 'project_stats', 'current'),
       (docSnap) => {
@@ -377,8 +539,32 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Real-time Firestore sync for completed & handover projects
+  // Real-time Database sync for completed & handover projects (Supabase Primary, Firestore Fallback)
   useEffect(() => {
+    if (isSupabaseConfigured && supabase) {
+      fetchProjectsFromSupabase().then((projects) => {
+        if (projects && projects.length > 0) {
+          setCompletedProjects(projects);
+          localStorage.setItem('abed_completed_projects', JSON.stringify(projects));
+        }
+      }).catch((e) => console.warn('Supabase completed_projects init note:', e));
+
+      const channel = supabase
+        .channel('realtime_completed_projects')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'completed_projects' }, async () => {
+          const fresh = await fetchProjectsFromSupabase();
+          if (fresh && fresh.length > 0) {
+            setCompletedProjects(fresh);
+            localStorage.setItem('abed_completed_projects', JSON.stringify(fresh));
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+
     const unsubscribe = onSnapshot(
       collection(db, 'completed_projects'),
       (snapshot) => {
@@ -424,7 +610,6 @@ export default function App() {
           });
           loaded.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         }
-        console.log('[Firestore Read] Completed projects updated in React state:', loaded.length, 'projects');
         setCompletedProjects(loaded);
         localStorage.setItem('abed_completed_projects', JSON.stringify(loaded));
       },
@@ -686,51 +871,85 @@ export default function App() {
     showNotification('এডমিন প্যানেলটি সুরক্ষিতভাবে লক করে সেশন সাইনআউট সম্পন্ন হয়েছে!');
   };
 
-  // Save Site Settings to Cloud Firestore
+  // Save Site Settings to Supabase Database (with Firestore backup)
   const handleSaveSiteSettings = async () => {
     try {
-      await setDoc(doc(db, 'site_settings', 'current'), siteSettings, { merge: true });
-      showNotification('কোম্পানি ব্র্যান্ডিং ইনফো সফলভাবে ক্লাউড ফায়ারবেসে সংরক্ষণ ও আপডেট করা হয়েছে!');
+      // 1. Save to Supabase
+      try {
+        await saveSiteSettingsToSupabase(siteSettings);
+      } catch (sbErr) {
+        console.warn('Supabase save site_settings note:', sbErr);
+      }
+
+      // 2. Also keep Firebase in sync if available
+      try {
+        await setDoc(doc(db, 'site_settings', 'current'), siteSettings, { merge: true });
+      } catch (fbErr) {
+        console.warn('Firebase save site_settings note:', fbErr);
+      }
+
+      showNotification('কোম্পানি ব্র্যান্ডিং ইনফো সফলভাবে ডাটাবেজে সংরক্ষণ ও আপডেট করা হয়েছে!');
     } catch (err) {
-      console.error('Error saving site settings to Firestore:', err);
+      console.error('Error saving site settings:', err);
       showNotification('সেটিংস সংরক্ষণে সমস্যা হয়েছে। অনুগ্রহ করে ইন্টারনেট ও অনুমতি যাচাই করুন।', 'error');
     }
   };
 
-  // Sync stats directly to Cloud Firestore when adjusted by admin
+  // Sync stats directly to Supabase Database when adjusted by admin (with Firestore backup)
   const handleUpdateStats = async (newSuccess: number, newPending: number) => {
     setSuccessTarget(newSuccess);
     setPendingTarget(newPending);
     if (isAdminUnlocked) {
+      // 1. Sync to Supabase
+      try {
+        await saveProjectStatsToSupabase(newSuccess, newPending);
+      } catch (sbErr) {
+        console.warn('Supabase sync stats note:', sbErr);
+      }
+
+      // 2. Also sync to Firebase
       try {
         await setDoc(doc(db, 'project_stats', 'current'), {
           successTarget: newSuccess,
           pendingTarget: newPending
         }, { merge: true });
-      } catch (err) {
-        console.warn('Could not sync stats to Firestore:', err);
+      } catch (fbErr) {
+        console.warn('Firestore sync stats note:', fbErr);
       }
     }
   };
 
   const handleProductCreate = async (newProduct: Product) => {
     try {
-      await ensureAuthSession();
-      const payload = {
-        ...newProduct,
-        imgUrl: newProduct.imgUrl,
-        image: newProduct.imgUrl,         // compatibility with 'image'
-        imageUrl: newProduct.imgUrl,      // compatibility with 'imageUrl'
-        coverImage: newProduct.imgUrl,    // compatibility with 'coverImage'
-        images: newProduct.images || (newProduct.imgUrl ? [newProduct.imgUrl] : []),
-        gallery: newProduct.images || (newProduct.imgUrl ? [newProduct.imgUrl] : []) // compatibility with 'gallery'
-      };
-      await setDoc(doc(db, 'products', newProduct.id), payload);
+      // 1. Save to Supabase Database
+      try {
+        await saveProductToSupabase(newProduct);
+      } catch (sbErr) {
+        console.warn('Supabase product create note:', sbErr);
+      }
+
+      // 2. Also keep Firebase in sync if available
+      try {
+        await ensureAuthSession();
+        const payload = {
+          ...newProduct,
+          imgUrl: newProduct.imgUrl,
+          image: newProduct.imgUrl,
+          imageUrl: newProduct.imgUrl,
+          coverImage: newProduct.imgUrl,
+          images: newProduct.images || (newProduct.imgUrl ? [newProduct.imgUrl] : []),
+          gallery: newProduct.images || (newProduct.imgUrl ? [newProduct.imgUrl] : [])
+        };
+        await setDoc(doc(db, 'products', newProduct.id), payload);
+      } catch (fbErr) {
+        console.warn('Firebase product create note:', fbErr);
+      }
+
       setProducts(prev => [newProduct, ...prev.filter(p => p.id !== newProduct.id)]);
       localStorage.setItem('abed_products', JSON.stringify([newProduct, ...products.filter(p => p.id !== newProduct.id)]));
-      showNotification('নতুন পণ্যটি সফলভাবে ক্লাউড ফায়ারবেসে যুক্ত করা হয়েছে!');
+      showNotification('নতুন পণ্যটি সফলভাবে সংগ্রহশালায় যুক্ত করা হয়েছে!');
     } catch (err) {
-      console.error('Error creating product in Firestore:', err);
+      console.error('Error creating product:', err);
       setProducts(prev => [newProduct, ...prev.filter(p => p.id !== newProduct.id)]);
       showNotification('নতুন পণ্যটি সফলভাবে সংগ্রহশালায় যুক্ত করা হয়েছে!');
     }
@@ -738,22 +957,35 @@ export default function App() {
 
   const handleProductUpdate = async (updatedProduct: Product) => {
     try {
-      await ensureAuthSession();
-      const payload = {
-        ...updatedProduct,
-        imgUrl: updatedProduct.imgUrl,
-        image: updatedProduct.imgUrl,         // compatibility with 'image'
-        imageUrl: updatedProduct.imgUrl,      // compatibility with 'imageUrl'
-        coverImage: updatedProduct.imgUrl,    // compatibility with 'coverImage'
-        images: updatedProduct.images || (updatedProduct.imgUrl ? [updatedProduct.imgUrl] : []),
-        gallery: updatedProduct.images || (updatedProduct.imgUrl ? [updatedProduct.imgUrl] : []) // compatibility with 'gallery'
-      };
-      await setDoc(doc(db, 'products', updatedProduct.id), payload, { merge: true });
+      // 1. Update in Supabase Database
+      try {
+        await saveProductToSupabase(updatedProduct);
+      } catch (sbErr) {
+        console.warn('Supabase product update note:', sbErr);
+      }
+
+      // 2. Also keep Firebase in sync if available
+      try {
+        await ensureAuthSession();
+        const payload = {
+          ...updatedProduct,
+          imgUrl: updatedProduct.imgUrl,
+          image: updatedProduct.imgUrl,
+          imageUrl: updatedProduct.imgUrl,
+          coverImage: updatedProduct.imgUrl,
+          images: updatedProduct.images || (updatedProduct.imgUrl ? [updatedProduct.imgUrl] : []),
+          gallery: updatedProduct.images || (updatedProduct.imgUrl ? [updatedProduct.imgUrl] : [])
+        };
+        await setDoc(doc(db, 'products', updatedProduct.id), payload, { merge: true });
+      } catch (fbErr) {
+        console.warn('Firebase product update note:', fbErr);
+      }
+
       setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
       localStorage.setItem('abed_products', JSON.stringify(products.map(p => p.id === updatedProduct.id ? updatedProduct : p)));
-      showNotification('পণ্যটির তথ্য সফলভাবে ক্লাউড ফায়ারবেসে আপডেট করা হয়েছে!');
+      showNotification('পণ্যটির তথ্য সফলভাবে আপডেট করা হয়েছে!');
     } catch (err) {
-      console.error('Error updating product in Firestore:', err);
+      console.error('Error updating product:', err);
       setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
       showNotification('পণ্যটির তথ্য সফলভাবে আপডেট করা হয়েছে!');
     }
@@ -761,13 +993,26 @@ export default function App() {
 
   const handleProductDelete = async (id: string, nameBn: string) => {
     try {
-      await ensureAuthSession();
-      await deleteDoc(doc(db, 'products', id));
+      // 1. Delete from Supabase Database
+      try {
+        await deleteProductFromSupabase(id);
+      } catch (sbErr) {
+        console.warn('Supabase product delete note:', sbErr);
+      }
+
+      // 2. Also delete from Firebase if available
+      try {
+        await ensureAuthSession();
+        await deleteDoc(doc(db, 'products', id));
+      } catch (fbErr) {
+        console.warn('Firebase product delete note:', fbErr);
+      }
+
       setProducts(prev => prev.filter(p => p.id !== id));
       localStorage.setItem('abed_products', JSON.stringify(products.filter(p => p.id !== id)));
       showNotification(`"${nameBn}" পণ্যটি সফলভাবে ডিলিট করা হয়েছে!`);
     } catch (err) {
-      console.error('Error deleting product from Firestore:', err);
+      console.error('Error deleting product:', err);
       setProducts(prev => prev.filter(p => p.id !== id));
       showNotification(`"${nameBn}" পণ্যটি সফলভাবে ডিলিট করা হয়েছে!`);
     }
@@ -841,6 +1086,60 @@ export default function App() {
     }
   };
 
+  // Dedicated View for Admin Dashboard (/admin)
+  if (currentView === 'admin') {
+    return (
+      <AdminDashboardPage
+        isAdminUnlocked={isAdminUnlocked}
+        adminEmail={adminEmail}
+        setAdminEmail={setAdminEmail}
+        adminPassword={adminPassword}
+        setAdminPassword={setAdminPassword}
+        showPassword={showPassword}
+        setShowPassword={setShowPassword}
+        handleAdminLogin={handleAdminLogin}
+        handleAdminLogout={handleAdminLogout}
+        lockoutSeconds={lockoutSeconds}
+        failedAttempts={failedAttempts}
+        adminNotification={adminNotification}
+        setAdminNotification={setAdminNotification}
+        isMaintenanceMode={isMaintenanceMode}
+        onToggleMaintenance={() => handleToggleMaintenanceMode(!isMaintenanceMode)}
+        products={products}
+        onProductCreated={handleProductCreate}
+        onProductUpdated={handleProductUpdate}
+        onProductDeleted={handleProductDelete}
+        completedProjects={completedProjects}
+        setCompletedProjects={setCompletedProjects}
+        successTarget={successTarget}
+        setSuccessTarget={setSuccessTarget}
+        pendingTarget={pendingTarget}
+        setPendingTarget={setPendingTarget}
+        onUpdateStats={handleUpdateStats}
+        siteSettings={siteSettings}
+        setSiteSettings={setSiteSettings}
+        onSaveSiteSettings={handleSaveSiteSettings}
+        adminMasterPasscode={adminMasterPasscode}
+        onUpdateMasterPasscode={handleUpdateMasterPasscode}
+        resetAllToDefaults={resetAllToDefaults}
+        onBackToHome={() => navigateTo('home')}
+      />
+    );
+  }
+
+  // Dedicated View for Maintenance Mode (active for public visitors)
+  if (isMaintenanceMode && !isAdminUnlocked) {
+    return (
+      <MaintenancePage
+        brandNameLeft={siteSettings.brandNameLeft}
+        brandNameRight={siteSettings.brandNameRight}
+        phone1={siteSettings.phone1}
+        showroomAddress={siteSettings.showroomAddress}
+        onGoToAdmin={() => navigateTo('admin')}
+      />
+    );
+  }
+
   // Dedicated View for Handover Projects
   if (currentView === 'handover-projects') {
     return (
@@ -852,20 +1151,31 @@ export default function App() {
         pageTitle={siteSettings.handoverPageTitle}
         pageDesc={siteSettings.handoverPageDesc}
         onBackToHome={() => navigateTo('home')}
-        onOpenAdmin={() => {
-          navigateTo('home');
-          setShowAdminPanel(true);
-          setActiveAdminTab('projects');
-          setTimeout(() => {
-            document.getElementById('admin')?.scrollIntoView({ behavior: 'smooth' });
-          }, 150);
-        }}
+        onOpenAdmin={() => navigateTo('admin')}
       />
     );
   }
 
   return (
     <div className="min-h-screen bg-[#fbfaf6] text-[#2c1d07] font-sans antialiased selection:bg-[#d4a762] selection:text-[#1a1200]">
+      
+      {/* Admin Preview Mode Banner (shown when site is under maintenance and admin is viewing live site) */}
+      {isMaintenanceMode && isAdminUnlocked && (
+        <div className="bg-gradient-to-r from-amber-950 via-[#261709] to-amber-950 text-amber-200 text-xs px-4 py-2 border-b border-amber-500/40 flex items-center justify-between z-50 sticky top-0 font-sans shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+            <span className="font-bold">Website Under Maintenance (এডমিন প্রিভিউ মোড)</span>
+            <span className="text-amber-300/80 hidden sm:inline">— সাধারণ ভিজিটররা এই মুহূর্তে মেইনটেন্যান্স পেজ দেখছেন।</span>
+          </div>
+          <button 
+            type="button"
+            onClick={() => navigateTo('admin')}
+            className="bg-gradient-to-r from-[#d4a762] to-[#b88e4f] text-stone-950 font-black px-3.5 py-1 rounded-lg text-[11px] transition-colors cursor-pointer shadow-xs"
+          >
+            Admin Dashboard
+          </button>
+        </div>
+      )}
       
       {/* HEADER SECTION WITH THE BRAND NAME "Abed Furniture & Interior" IN THE TOP MENU BAR */}
       <header className="bg-gradient-to-r from-[#170f01] via-[#2d1e05] to-[#170f01] text-white sticky top-0 z-40 shadow-xl border-b border-[#d4a762]/25 px-4 md:px-8 py-2 md:py-3 animate-none">
@@ -1034,6 +1344,16 @@ export default function App() {
             >
               <span>CONTACT</span>
               <span className="text-[12.5px] text-[#d4a762] font-black font-sans">যোগাযোগ</span>
+            </button>
+            <button 
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                navigateTo('admin');
+              }} 
+              className="text-left py-2.5 px-1.5 font-bold text-stone-300 hover:text-[#fdbf5e] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider border-t border-white/10 mt-1"
+            >
+              <span>ADMIN PORTAL</span>
+              <span className="text-[12px] text-[#fdbf5e] font-black font-sans">এডমিন প্যানেল</span>
             </button>
           </motion.div>
         )}
@@ -1539,8 +1859,8 @@ export default function App() {
         </motion.div>
       </section>
 
-      {/* ADMIN CONTROL PANEL SECTION - SECURE AND HIDDEN BY DEFAULT */}
-      {showAdminPanel && (
+      {/* ADMIN CONTROL PANEL SECTION - MOVED TO DEDICATED ROUTE /admin */}
+      {false && (
         <section id="admin" className="py-12 bg-[#faf9f6]/95 border-t border-[#d4a762]/35 relative overflow-hidden text-stone-850 font-sans shadow-inner">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-100/25 via-stone-50/60 to-[#faf9f6]/95 pointer-events-none" />
           <div className="absolute top-0 left-10 w-72 h-72 bg-[#d4a762]/5 rounded-full blur-3xl pointer-events-none" />
@@ -2559,20 +2879,9 @@ export default function App() {
             <button onClick={() => navigateTo('handover-projects')} className="hover:text-[#fdbf5e] transition-colors cursor-pointer font-semibold">Handover Projects</button>
             <button onClick={() => scrollToSection('designer')} className="hover:text-white transition-colors cursor-pointer font-semibold">Designer</button>
             <button 
-              onClick={() => {
-                setShowAdminPanel(prev => !prev);
-                if (!showAdminPanel) {
-                  setTimeout(() => {
-                    const el = document.getElementById('admin');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }, 100);
-                }
-              }} 
-              className={`text-xs hover:text-white transition-colors cursor-pointer font-bold flex items-center gap-1.5 px-3 py-1 rounded-xl border ${
-                showAdminPanel 
-                  ? 'text-[#fdbf5e] border-[#d4a762]/40 bg-[#d4a762]/5' 
-                  : 'text-stone-400 border-transparent hover:bg-white/5'
-              }`}
+              type="button"
+              onClick={() => navigateTo('admin')} 
+              className="text-xs hover:text-[#fdbf5e] text-stone-400 transition-colors cursor-pointer font-bold flex items-center gap-1.5 px-3 py-1 rounded-xl border border-stone-800 hover:border-[#d4a762]/30 hover:bg-white/5"
             >
               <Settings className="w-3.5 h-3.5" />
               <span>Admin Console</span>

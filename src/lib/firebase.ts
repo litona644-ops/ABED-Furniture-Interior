@@ -54,8 +54,10 @@ export async function ensureAuthSession(): Promise<void> {
   }
 }
 
+import { uploadToStorage } from './supabase';
+
 /**
- * Uploads a completed project photo to Cloudinary and returns the public secure URL.
+ * Uploads a completed project photo to Supabase Storage "uploads" bucket (with Cloudinary fallback).
  * Supports JPG, JPEG, PNG, WEBP.
  */
 export async function uploadProjectImage(
@@ -63,11 +65,11 @@ export async function uploadProjectImage(
   _projectId?: string,
   onProgress?: (percent: number) => void
 ): Promise<string> {
-  return await uploadImageToCloudinary(file, onProgress);
+  return await uploadToStorage(file, 'projects', onProgress);
 }
 
 /**
- * Uploads a completed project video to Cloudinary and returns the public secure URL.
+ * Uploads a completed project video to Supabase Storage "uploads" bucket (with Cloudinary fallback).
  * Supports MP4 videos (1-2 minutes, up to 100MB).
  */
 export async function uploadProjectVideo(
@@ -75,11 +77,11 @@ export async function uploadProjectVideo(
   _projectId?: string,
   onProgress?: (percent: number) => void
 ): Promise<string> {
-  return await uploadVideoToCloudinary(file, onProgress);
+  return await uploadToStorage(file, 'videos', onProgress);
 }
 
 /**
- * Uploads a product catalog image to Cloudinary and returns the public secure URL.
+ * Uploads a product catalog image to Supabase Storage "uploads" bucket (with Cloudinary fallback).
  * Supports JPG, JPEG, PNG, WEBP.
  */
 export async function uploadProductImage(
@@ -87,7 +89,7 @@ export async function uploadProductImage(
   _productId?: string,
   onProgress?: (percent: number) => void
 ): Promise<string> {
-  return await uploadImageToCloudinary(file, onProgress);
+  return await uploadToStorage(file, 'products', onProgress);
 }
 
 export { CLOUDINARY_CONFIG };

@@ -30,6 +30,11 @@ import {
 } from 'lucide-react';
 import { CompletedProject, ProjectCategory } from '../types';
 import { uploadProjectImage, uploadProjectVideo, ensureAuthSession } from '../lib/firebase';
+import { 
+  saveProjectToSupabase, 
+  deleteProjectFromSupabase, 
+  toggleProjectPublishInSupabase 
+} from '../lib/supabase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -153,15 +158,33 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
     setPublishingProjectId(project.id);
 
     try {
-      await ensureAuthSession();
+      // 1. Update in Supabase Database
+      try {
+        await toggleProjectPublishInSupabase(project.id, nextStatus);
+      } catch (sbErr) {
+        console.warn('Supabase toggle note:', sbErr);
+      }
+
+      // 2. Also keep Firebase in sync if available
+      try {
+        await ensureAuthSession();
+        const statusPayload = {
+          isPublished: nextStatus,
+          isPublic: nextStatus,
+          status: nextStatus ? 'published' : 'draft',
+          updatedAt: Date.now()
+        };
+        await setDoc(doc(db, 'completed_projects', project.id), statusPayload, { merge: true });
+      } catch (fbErr) {
+        console.warn('Firebase sync note:', fbErr);
+      }
+
       const statusPayload = {
         isPublished: nextStatus,
         isPublic: nextStatus,
-        status: nextStatus ? 'published' : 'draft',
+        status: (nextStatus ? 'published' : 'draft') as 'published' | 'draft',
         updatedAt: Date.now()
       };
-
-      await setDoc(doc(db, 'completed_projects', project.id), statusPayload, { merge: true });
 
       // Immediately update local state so UI updates without waiting
       setProjects(prev => prev.map(p => p.id === project.id ? { ...p, ...statusPayload } : p));
@@ -338,8 +361,21 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
     if (confirmModal.actionType === 'delete_project' && confirmModal.targetId) {
       const pId = confirmModal.targetId;
       try {
-        await ensureAuthSession();
-        await deleteDoc(doc(db, 'completed_projects', pId));
+        // 1. Delete from Supabase
+        try {
+          await deleteProjectFromSupabase(pId);
+        } catch (sbErr) {
+          console.warn('Supabase delete note:', sbErr);
+        }
+
+        // 2. Also delete from Firebase if available
+        try {
+          await ensureAuthSession();
+          await deleteDoc(doc(db, 'completed_projects', pId));
+        } catch (fbErr) {
+          console.warn('Firebase delete note:', fbErr);
+        }
+
         setProjects(prev => prev.filter(p => p.id !== pId));
         showNotification('প্রজেক্ট সফলভাবে ডিলিট হয়েছে', 'success');
       } catch (err: any) {
@@ -418,11 +454,20 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
         isPublished
       });
 
-      // Ensure active auth session for Firestore security rules
-      await ensureAuthSession();
+      // 1. Save to Supabase Database
+      try {
+        await saveProjectToSupabase(projectPayload);
+      } catch (sbErr) {
+        console.warn('Supabase save project note:', sbErr);
+      }
 
-      // Save to Firebase Firestore collection `completed_projects`
-      await setDoc(doc(db, 'completed_projects', projectId), projectPayload, { merge: true });
+      // 2. Also save to Firebase if available
+      try {
+        await ensureAuthSession();
+        await setDoc(doc(db, 'completed_projects', projectId), projectPayload, { merge: true });
+      } catch (fbErr) {
+        console.warn('Firebase save project note:', fbErr);
+      }
 
       // Update local state immediately
       setProjects(prev => {
