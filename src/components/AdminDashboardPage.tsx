@@ -30,6 +30,7 @@ import {
 import { Product, CompletedProject } from '../types';
 import AdminProductManager from './AdminProductManager';
 import { AdminProjectManager } from './AdminProjectManager';
+import VisitorAnalyticsDashboard from './VisitorAnalyticsDashboard';
 
 interface AdminDashboardPageProps {
   isAdminUnlocked: boolean;
@@ -101,7 +102,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   resetAllToDefaults,
   onBackToHome
 }) => {
-  const [activeTab, setActiveTab] = useState<'maintenance' | 'products' | 'projects' | 'stats' | 'site_info' | 'security'>('maintenance');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'maintenance' | 'products' | 'projects' | 'stats' | 'site_info' | 'security'>('analytics');
   const [newPasscode, setNewPasscode] = useState('');
   const [confirmPasscode, setConfirmPasscode] = useState('');
 
@@ -488,8 +489,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 ======================================================== */}
             <div className="p-1.5 rounded-2xl bg-[#080808] border border-white/[0.08] flex items-center gap-2 overflow-x-auto shadow-2xl">
               {[
-                { id: 'maintenance', label: 'Maintenance Control', icon: Power },
-                { id: 'products', label: 'Products Catalog', icon: Package },
+                { id: 'analytics', label: 'Visitor Analytics', icon: Activity },
+                { id: 'maintenance', label: 'Maintenance Mode', icon: Power },
+                { id: 'products', label: 'Products & Images', icon: Package },
                 { id: 'projects', label: 'Handover Projects', icon: FolderCheck },
                 { id: 'stats', label: 'Project Stats', icon: BarChart },
                 { id: 'site_info', label: 'Site Content & Branding', icon: Settings },
@@ -520,6 +522,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 ======================================================== */}
             <div className="p-4 sm:p-8 rounded-3xl bg-[#080808] border border-white/[0.08] shadow-2xl text-left">
               
+              {/* TAB 0: VISITOR ANALYTICS */}
+              {activeTab === 'analytics' && (
+                <VisitorAnalyticsDashboard />
+              )}
+
               {/* TAB 1: WEBSITE MAINTENANCE */}
               {activeTab === 'maintenance' && (
                 <div className="space-y-6 max-w-3xl">

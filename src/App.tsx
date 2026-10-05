@@ -53,6 +53,7 @@ import { HandoverProjectsPage } from './components/HandoverProjectsPage';
 import { AdminProjectManager } from './components/AdminProjectManager';
 import { MaintenancePage } from './components/MaintenancePage';
 import { AdminDashboardPage } from './components/AdminDashboardPage';
+import { recordPageView } from './lib/analytics';
 import { 
   supabase, 
   isSupabaseConfigured,
@@ -252,6 +253,14 @@ export default function App() {
       localStorage.setItem('abed_maintenance_mode', String(Boolean(siteSettings.isMaintenanceMode)));
     }
   }, [siteSettings.isMaintenanceMode]);
+
+  // Automated Secure Visitor Analytics Tracking for Public Pages
+  useEffect(() => {
+    if (currentView !== 'admin' && !isMaintenanceMode) {
+      const pagePath = currentView === 'handover-projects' ? '/handover-projects' : '/';
+      recordPageView(pagePath, document.referrer);
+    }
+  }, [currentView, isMaintenanceMode]);
 
   const handleToggleMaintenanceMode = async (newVal: boolean) => {
     setIsMaintenanceMode(newVal);

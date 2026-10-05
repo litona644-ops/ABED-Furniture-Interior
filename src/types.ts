@@ -53,3 +53,27 @@ export interface CompletedProject {
   isPublic?: boolean;
   status?: 'published' | 'draft';
 }
+
+export interface VisitorRecord {
+  id: string;
+  ip: string;
+  country: string;
+  city?: string;
+  device: 'desktop' | 'mobile' | 'tablet';
+  browser: string;
+  os: string;
+  visitedPage: string;
+  referrer: string;
+  userAgent?: string;
+  timestamp: number;
+  createdAt: string;
+}
+
+export interface VisitorStats {
+  totalVisitors: number;
+  todayVisitors: number;
+  onlineVisitors: number;
+  uniqueVisitors: number;
+  totalPageViews: number;
+}
+
