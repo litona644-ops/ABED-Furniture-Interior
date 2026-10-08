@@ -27,7 +27,8 @@ import {
   Radio,
   Sliders,
   Megaphone,
-  Bell
+  Bell,
+  Palette
 } from 'lucide-react';
 import { Product, CompletedProject } from '../types';
 import AdminProductManager from './AdminProductManager';
@@ -35,6 +36,7 @@ import { AdminProjectManager } from './AdminProjectManager';
 import VisitorAnalyticsDashboard from './VisitorAnalyticsDashboard';
 import { AdminOfferBannerManager } from './AdminOfferBannerManager';
 import { AdminNoticeManager } from './AdminNoticeManager';
+import { AdminThemeColorManager } from './AdminThemeColorManager';
 import { AdminAccessSecurityDashboard } from './AdminAccessSecurityDashboard';
 
 interface AdminDashboardPageProps {
@@ -108,7 +110,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   resetAllToDefaults,
   onBackToHome
 }) => {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'notice' | 'offers' | 'maintenance' | 'products' | 'projects' | 'stats' | 'site_info' | 'security'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'colors' | 'notice' | 'offers' | 'maintenance' | 'products' | 'projects' | 'stats' | 'site_info' | 'security'>('analytics');
   const [newPasscode, setNewPasscode] = useState('');
   const [confirmPasscode, setConfirmPasscode] = useState('');
 
@@ -496,6 +498,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             <div className="p-1.5 rounded-2xl bg-[#080808] border border-white/[0.08] flex items-center gap-2 overflow-x-auto shadow-2xl">
               {[
                 { id: 'analytics', label: 'Visitor Analytics', icon: Activity },
+                { id: 'colors', label: 'Theme & Element Colors', icon: Palette },
                 { id: 'notice', label: 'Notice & Custom Text', icon: Bell },
                 { id: 'offers', label: 'Offers & Advertising', icon: Megaphone },
                 { id: 'maintenance', label: 'Maintenance Mode', icon: Power },
@@ -533,6 +536,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               {/* TAB 0: VISITOR ANALYTICS */}
               {activeTab === 'analytics' && (
                 <VisitorAnalyticsDashboard />
+              )}
+
+              {/* TAB 0.1: THEME & ELEMENT COLORS CUSTOMIZER */}
+              {activeTab === 'colors' && (
+                <AdminThemeColorManager
+                  siteSettings={siteSettings}
+                  setSiteSettings={setSiteSettings}
+                  onSaveSiteSettings={onSaveSiteSettings}
+                  onShowNotification={(msg, type) => setAdminNotification({ message: msg, type })}
+                />
               )}
 
               {/* TAB 0.2: HOMEPAGE NOTICE & CUSTOM TEXT */}

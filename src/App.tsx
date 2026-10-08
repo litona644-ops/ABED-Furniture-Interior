@@ -57,6 +57,7 @@ import { MaintenancePage } from './components/MaintenancePage';
 import { AdminDashboardPage } from './components/AdminDashboardPage';
 import { HomepageOfferBanner } from './components/HomepageOfferBanner';
 import { HomepageNoticeBox } from './components/HomepageNoticeBox';
+import { loadThemeColors, applyThemeColors, DEFAULT_THEME_COLORS } from './lib/themeManager';
 import { recordPageView } from './lib/analytics';
 import { registerAdminSession, terminateAdminSession } from './lib/adminSessions';
 import { 
@@ -146,6 +147,8 @@ const DEFAULT_SETTINGS = {
   noticeAlign: 'center',
   noticeBorderGlow: true,
   noticeDismissible: true,
+  // Dynamic Global Theme & Element Colors
+  themeColors: DEFAULT_THEME_COLORS,
 };
 
 export default function App() {
@@ -290,6 +293,12 @@ export default function App() {
       recordPageView(pagePath, document.referrer);
     }
   }, [currentView, isMaintenanceMode]);
+
+  // Real-Time Theme & Element Colors Application
+  useEffect(() => {
+    const activeColors = siteSettings.themeColors || loadThemeColors();
+    applyThemeColors(activeColors);
+  }, [siteSettings.themeColors]);
 
   const handleToggleMaintenanceMode = async (newVal: boolean) => {
     setIsMaintenanceMode(newVal);

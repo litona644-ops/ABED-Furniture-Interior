@@ -203,8 +203,12 @@ export const HomepageNoticeBox: React.FC<HomepageNoticeBoxProps> = ({
   const [isDismissed, setIsDismissed] = useState(false);
 
   // Checks if enabled, text present, and matches current position
-  const isEnabled = Boolean(settings.noticeEnabled);
-  const text = (settings.noticeText || '').trim();
+  // Default to enabled so notice is immediately operational and visible
+  const isEnabled = settings.noticeEnabled !== false;
+  const text = (
+    settings.noticeText || 
+    'জরুরি বিজ্ঞপ্তি: আমাদের শোরুমে নতুন প্রিমিয়াম চিটাগাং সেগুন কাঠের এক্সক্লুসিভ কালেকশন যুক্ত হয়েছে।'
+  ).trim();
   const currentPos = settings.noticePosition || 'above_products';
 
   if (!isEnabled || !text || isDismissed) {
@@ -220,8 +224,12 @@ export const HomepageNoticeBox: React.FC<HomepageNoticeBoxProps> = ({
   const theme = LIGHT_GRADIENT_PALETTES[gradientId] || LIGHT_GRADIENT_PALETTES['gold-champagne'];
   const size = settings.noticeSize || 'md';
   const align = settings.noticeAlign || 'center';
-  const subtitle = (settings.noticeSubtitle || '').trim();
-  const badge = (settings.noticeBadge || '📢 নোটিশ').trim();
+  const subtitle = (
+    settings.noticeSubtitle !== undefined 
+      ? settings.noticeSubtitle 
+      : 'সরাসরি শোরুমে এসে আসবাবপত্র যাচাই করুন অথবা ফোনে বিস্তারিত জেনে অর্ডার কনফার্ম করুন।'
+  ).trim();
+  const badge = (settings.noticeBadge || '📢 বিশেষ নোটিশ').trim();
   const hasBorderGlow = settings.noticeBorderGlow !== false;
   const isDismissible = settings.noticeDismissible !== false;
 
@@ -363,10 +371,9 @@ export const HomepageNoticeBox: React.FC<HomepageNoticeBoxProps> = ({
   return (
     <div className={`w-full px-4 sm:px-6 md:px-8 ${position === 'hero_spotlight' ? 'my-4 max-w-3xl mx-auto' : 'my-8 sm:my-10 max-w-6xl mx-auto'}`}>
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.4 }}
+        initial={{ opacity: 0.9, y: 0 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
         className={`relative ${theme.gradientClass} border-2 ${theme.borderClass} ${theme.shadowClass} ${sz.container} overflow-hidden ${hasBorderGlow ? 'ring-2 ring-white/50' : ''}`}
       >
         {/* Subtle decorative background light flare */}

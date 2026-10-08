@@ -38,8 +38,8 @@ export const AdminNoticeManager: React.FC<AdminNoticeManagerProps> = ({
   onSaveSiteSettings,
   onShowNotification
 }) => {
-  // Local state initialized from siteSettings
-  const [enabled, setEnabled] = useState<boolean>(Boolean(siteSettings.noticeEnabled));
+  // Local state initialized from siteSettings (default to true so it works immediately)
+  const [enabled, setEnabled] = useState<boolean>(siteSettings.noticeEnabled !== false);
   const [noticeText, setNoticeText] = useState<string>(
     siteSettings.noticeText || 'জরুরি বিজ্ঞপ্তি: আমাদের শোরুমে নতুন প্রিমিয়াম চিটাগাং সেগুন কাঠের এক্সক্লুসিভ কালেকশন যুক্ত হয়েছে।'
   );

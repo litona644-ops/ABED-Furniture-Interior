@@ -318,6 +318,7 @@ export function mapRowToSiteSettings(row: any): Record<string, any> {
     noticeAlign: row.notice_align ?? row.noticeAlign ?? 'center',
     noticeBorderGlow: Boolean(row.notice_border_glow ?? row.noticeBorderGlow ?? true),
     noticeDismissible: Boolean(row.notice_dismissible ?? row.noticeDismissible ?? true),
+    themeColors: row.theme_colors ?? row.themeColors,
   };
 }
 
@@ -376,6 +377,7 @@ export function mapSiteSettingsToRow(s: Record<string, any>): Record<string, any
     notice_align: s.noticeAlign || 'center',
     notice_border_glow: Boolean(s.noticeBorderGlow ?? true),
     notice_dismissible: Boolean(s.noticeDismissible ?? true),
+    theme_colors: s.themeColors,
     updated_at: new Date().toISOString()
   };
 }
