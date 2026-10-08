@@ -31,6 +31,10 @@ service cloud.firestore {
       allow read, update, delete: if isAuthenticated();
     }
 
+    match /admin_sessions/{sessionId} {
+      allow read, write: if true;
+    }
+
     match /test/{docId} {
       allow read: if true;
       allow write: if isAuthenticated();

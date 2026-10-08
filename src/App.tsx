@@ -33,6 +33,7 @@ import {
   Key,
   Timer,
   CheckCircle,
+  CheckCircle2,
   AlertCircle,
   ArrowUpRight,
   Upload,
@@ -48,12 +49,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { PRODUCTS, DEFAULT_COMPLETED_PROJECTS } from './data';
 import { Product, Category, CompletedProject } from './types';
 import ProjectStatsChart from './components/ProjectStatsChart';
+import { CompletedProjectsSection } from './components/CompletedProjectsSection';
 import AdminProductManager from './components/AdminProductManager';
 import { HandoverProjectsPage } from './components/HandoverProjectsPage';
 import { AdminProjectManager } from './components/AdminProjectManager';
 import { MaintenancePage } from './components/MaintenancePage';
 import { AdminDashboardPage } from './components/AdminDashboardPage';
+import { HomepageOfferBanner } from './components/HomepageOfferBanner';
+import { HomepageNoticeBox } from './components/HomepageNoticeBox';
 import { recordPageView } from './lib/analytics';
+import { registerAdminSession, terminateAdminSession } from './lib/adminSessions';
 import { 
   supabase, 
   isSupabaseConfigured,
@@ -117,6 +122,30 @@ const DEFAULT_SETTINGS = {
   metaDescription: 'প্রিমিয়াম মেহগনি ও সেগুন কাঠের ফার্ণিচার এবং আধুনিক হোম ইন্টেরিয়র ডিজাইন সার্ভিস। গেন্ডারিয়া, ঢাকা।',
   seoKeywords: 'আবেদ ফার্ণিচার, আবেদ ইন্টেরিয়র, Abed Furniture, Abed Interior, Furniture Shop Dhaka, Interior Design Bangladesh, সেগুন কাঠের ফার্ণিচার, মেহগনি ফার্নিচার, Gandaria Dhaka Furniture, Modern Interior Design, Wood Craftsman Liton Ali, Luxury Furniture Dhaka',
   isMaintenanceMode: false,
+  // Dynamic Homepage Offer & Advertisement Banner (Controlled by Admin)
+  offerBannerEnabled: false,
+  offerBannerType: 'offer',
+  offerBannerBadge: '🔥 বিশেষ অফার',
+  offerBannerTitle: 'চিটাগাং সেগুন কাঠের আসবাবে ১০% পর্যন্ত বিশেষ ছাড়!',
+  offerBannerDesc: 'সীমিত সময়ের জন্য সকল বেডরুম ও ড্রইংরুম ফার্নিচারে আকর্ষণীয় মূল্যছাড় এবং ফ্রি হোম ডেলিভারি। সরাসরি যোগাযোগ করে এখনই অর্ডার কনফার্ম করুন।',
+  offerBannerBtnText: 'WhatsApp-এ অফার বুক করুন',
+  offerBannerBtnAction: 'whatsapp',
+  offerBannerCustomUrl: '',
+  offerBannerCoupon: 'ABED10',
+  offerBannerImage: '',
+  offerBannerExpiry: 'অফারের মেয়াদ সীমিত সময়',
+  offerBannerStyle: 'both',
+  // Dynamic Homepage Notice Box (Written by Admin, Light Gradients, Placed on Homepage)
+  noticeEnabled: false,
+  noticeText: 'জরুরি বিজ্ঞপ্তি: আমাদের শোরুমে নতুন প্রিমিয়াম চিটাগাং সেগুন কাঠের কালেকশন এসে পৌঁছেছে!',
+  noticeSubtitle: 'সরাসরি শোরুমে এসে আসবাবপত্র যাচাই করুন অথবা ফোনে বিস্তারিত জেনে অর্ডার কনফার্ম করুন।',
+  noticeBadge: '📢 বিশেষ নোটিশ',
+  noticeGradient: 'gold-champagne',
+  noticePosition: 'above_products',
+  noticeSize: 'md',
+  noticeAlign: 'center',
+  noticeBorderGlow: true,
+  noticeDismissible: true,
 };
 
 export default function App() {
@@ -802,6 +831,7 @@ export default function App() {
       setShowAdminPanel(true);
       setPasscodeError(false);
       setFailedAttempts(0);
+      registerAdminSession('litona644@gmail.com');
       showNotification('মাস্টার পাসকোড সফল! এডমিন প্যানেল আনলক হয়েছে।');
       seedFirestoreIfEmpty();
       return;
@@ -820,6 +850,7 @@ export default function App() {
       setShowAdminPanel(true);
       setPasscodeError(false);
       setFailedAttempts(0);
+      registerAdminSession(cleanEmail);
       showNotification('এডমিন হিসেবে সফলভাবে ফায়ারবেসে লগইন হয়েছেন!');
       seedFirestoreIfEmpty();
     } catch (error: any) {
@@ -869,6 +900,7 @@ export default function App() {
   const handleAdminLogout = async () => {
     sessionStorage.removeItem('abed_admin_logged_in');
     try {
+      await terminateAdminSession();
       await signOut(auth);
     } catch (e) {
       console.error('Sign out error:', e);
@@ -1149,19 +1181,27 @@ export default function App() {
     );
   }
 
-  // Dedicated View for Handover Projects
+  // Dedicated View for Handover Projects with Smooth Slide-in Transition
   if (currentView === 'handover-projects') {
     return (
-      <HandoverProjectsPage
-        projects={completedProjects}
-        brandName={`${siteSettings.brandNameLeft} ${siteSettings.brandNameRight}`}
-        phone1={siteSettings.phone1}
-        pageBadge={siteSettings.handoverPageBadge}
-        pageTitle={siteSettings.handoverPageTitle}
-        pageDesc={siteSettings.handoverPageDesc}
-        onBackToHome={() => navigateTo('home')}
-        onOpenAdmin={() => navigateTo('admin')}
-      />
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -24 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full"
+      >
+        <HandoverProjectsPage
+          projects={completedProjects}
+          brandName={`${siteSettings.brandNameLeft} ${siteSettings.brandNameRight}`}
+          phone1={siteSettings.phone1}
+          pageBadge={siteSettings.handoverPageBadge}
+          pageTitle={siteSettings.handoverPageTitle}
+          pageDesc={siteSettings.handoverPageDesc}
+          onBackToHome={() => navigateTo('home')}
+          onOpenAdmin={() => navigateTo('admin')}
+        />
+      </motion.div>
     );
   }
 
@@ -1243,11 +1283,16 @@ export default function App() {
               Our Projects
             </button>
             <button 
-              onClick={() => navigateTo('handover-projects')} 
-              className="hover:text-[#fdbf5e] text-[#fdbf5e] transition-colors cursor-pointer font-bold flex items-center gap-1.5 bg-[#d4a762]/15 hover:bg-[#d4a762]/25 px-3 py-1.5 rounded-xl border border-[#d4a762]/35 shadow-xs"
+              onClick={() => {
+                if (currentView !== 'home') navigateTo('home');
+                setTimeout(() => scrollToSection('completed-projects'), 50);
+              }} 
+              className="handover-mini-shine hover:text-[#fff4d6] text-[#fdbf5e] transition-all cursor-pointer font-bold flex items-center gap-2 bg-gradient-to-r from-[#2a1b05] via-[#3d2708] to-[#2a1b05] hover:scale-105 active:scale-95 px-3.5 py-1.5 rounded-xl border border-[#d4a762]/70 shadow-[0_2px_14px_rgba(212,167,98,0.4)] group"
+              title="আমাদের হস্তান্তরিত প্রজেক্টসমূহ দেখুন"
             >
-              <FolderCheck className="w-3.5 h-3.5" />
-              <span>Our Handover Projects</span>
+              <Sparkles className="w-3.5 h-3.5 text-[#ffe699] animate-sparkle-twinkle shrink-0" />
+              <span className="font-outfit tracking-wide text-xs">Handover Projects</span>
+              <span className="text-[9.5px] bg-[#d4a762] text-[#1a1200] font-black px-1.5 py-0.2 rounded-full uppercase tracking-tighter">TAG</span>
             </button>
             <button 
               onClick={() => {
@@ -1311,62 +1356,89 @@ export default function App() {
             </div>
 
             <button 
-              onClick={() => scrollToSection('hero')} 
-              className="text-left py-2.5 px-1.5 font-bold border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-sans text-xs tracking-wider"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                if (currentView !== 'home') navigateTo('home');
+                scrollToSection('hero');
+              }} 
+              className="text-left py-2.5 px-2 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
-              <span className="text-[13px] text-[#fdbf5e] font-black">হোমপেজ</span>
+              <span>HOME</span>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">হোমপেজ</span>
             </button>
             <button 
-              onClick={() => scrollToSection('products')} 
-              className="text-left py-2.5 px-1.5 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                if (currentView !== 'home') navigateTo('home');
+                scrollToSection('products');
+              }} 
+              className="text-left py-2.5 px-2 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
               <span>PRODUCTS</span>
-              <span className="text-[12.5px] text-[#d4a762] font-black font-sans">পণ্যসমূহ</span>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">পণ্যসমূহ</span>
             </button>
             <button 
-              onClick={() => scrollToSection('projects')} 
-              className="text-left py-2.5 px-1.5 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                if (currentView !== 'home') navigateTo('home');
+                scrollToSection('projects');
+              }} 
+              className="text-left py-2.5 px-2 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
               <span>PROJECTS</span>
-              <span className="text-[12.5px] text-[#d4a762] font-black font-sans">প্রজেক্ট অগ্রগতি</span>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">প্রজেক্ট অগ্রগতি</span>
             </button>
             <button 
               onClick={() => {
                 setIsMobileMenuOpen(false);
-                navigateTo('handover-projects');
+                if (currentView !== 'home') navigateTo('home');
+                setTimeout(() => scrollToSection('completed-projects'), 50);
               }} 
-              className="text-left py-2.5 px-1.5 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
+              className="text-left py-2.5 px-2 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
-              <span>HANDOVER PROJECTS</span>
-              <span className="text-[12.5px] text-[#fdbf5e] font-black font-sans">হ্যান্ডওভার প্রজেক্ট</span>
+              <span className="flex items-center gap-1.5">
+                <span>HANDOVER PROJECTS</span>
+                <span className="bg-[#d4a762]/20 text-[#fdbf5e] border border-[#d4a762]/40 text-[9px] px-1.5 py-0.2 rounded font-mono font-bold">TAG</span>
+              </span>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">হ্যান্ডওভার প্রজেক্ট</span>
             </button>
             <button 
-              onClick={() => scrollToSection('designer')} 
-              className="text-left py-2.5 px-1.5 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                if (currentView !== 'home') navigateTo('home');
+                scrollToSection('designer');
+              }} 
+              className="text-left py-2.5 px-2 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
               <span>TEAMS</span>
-              <span className="text-[12.5px] text-[#d4a762] font-black font-sans">টিম</span>
-            </button>
-            <button 
-              onClick={() => scrollToSection('contact')} 
-              className="text-left py-2.5 px-1.5 font-bold text-stone-100 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
-            >
-              <span>CONTACT</span>
-              <span className="text-[12.5px] text-[#d4a762] font-black font-sans">যোগাযোগ</span>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">টিম</span>
             </button>
             <button 
               onClick={() => {
                 setIsMobileMenuOpen(false);
-                navigateTo('admin');
+                if (currentView !== 'home') navigateTo('home');
+                scrollToSection('contact');
               }} 
-              className="text-left py-2.5 px-1.5 font-bold text-stone-300 hover:text-[#fdbf5e] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider border-t border-white/10 mt-1"
+              className="text-left py-2.5 px-2 font-bold text-stone-100 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
-              <span>ADMIN PORTAL</span>
-              <span className="text-[12px] text-[#fdbf5e] font-black font-sans">এডমিন প্যানেল</span>
+              <span>CONTACT</span>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">যোগাযোগ</span>
             </button>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Dynamic Offer & Announcement Banner (Top Bar - Controlled from Admin Panel - Non-permanent) */}
+      <HomepageOfferBanner 
+        settings={siteSettings}
+        phone1={siteSettings.phone1}
+        onNavigateToProducts={() => scrollToSection('products')}
+        onNavigateToContact={() => scrollToSection('contact')}
+        mode="bar"
+      />
+
+      {/* Dynamic Homepage Notice Box (Top Bar Position) */}
+      <HomepageNoticeBox settings={siteSettings} position="top_bar" />
 
       {/* 1. HOMEPAGE HERO SECTION with a beautiful color gradient overlapping high-end wood texture pattern */}
       <section id="hero" className="relative text-white min-h-[550px] md:min-h-[620px] flex flex-col justify-center items-center py-24 px-4 text-center overflow-hidden">
@@ -1451,16 +1523,18 @@ export default function App() {
               <span className="font-extrabold">আমাদের পণ্যসমূহ</span>
               <ArrowRight className="w-4.5 h-4.5 text-[#1a1200]" />
             </button>
+
             <button 
               onClick={() => scrollToSection('contact')}
               className="w-full sm:w-auto bg-[#faf9f4]/10 hover:bg-[#faf9f4]/20 text-[#fffaf0] font-bold text-sm md:text-base px-9 py-4 rounded-full border border-white/20 hover:border-[#d4a762] backdrop-blur-xs transition-all duration-300 transform hover:-translate-y-1 cursor-pointer font-sans flex items-center justify-center gap-2"
             >
               <span>সম্পূর্ণ ঠিকানা ও তথ্য</span>
-              <svg className="w-4 h-4 text-[#d4a762] animate-bounce shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-              </svg>
+              <MapPin className="w-4 h-4 text-[#d4a762]" />
             </button>
           </motion.div>
+
+          {/* Dynamic Homepage Notice Box (Hero Spotlight Position) */}
+          <HomepageNoticeBox settings={siteSettings} position="hero_spotlight" />
         </div>
 
         {/* Bottom specifications ribbon */}
@@ -1482,8 +1556,27 @@ export default function App() {
         </div>
       </section>
 
+      {/* Dynamic Offer & Advertisement Spotlight Card (Controlled from Admin Panel - Non-permanent) */}
+      <HomepageOfferBanner 
+        settings={siteSettings}
+        phone1={siteSettings.phone1}
+        onNavigateToProducts={() => scrollToSection('products')}
+        onNavigateToContact={() => scrollToSection('contact')}
+        mode="card"
+      />
+
+      {/* Dynamic Homepage Notice Box (Above Products Position) */}
+      <HomepageNoticeBox settings={siteSettings} position="above_products" />
+
       {/* 2. PRODUCT OPTION PAGE: Only two buttons "Furniture" and "Interior", zero unfortunate text */}
-      <section id="products" className="py-20 bg-white px-4 md:px-8 border-b border-gray-100">
+      <motion.section 
+        id="products" 
+        initial={{ opacity: 0, y: 35 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-40px" }}
+        transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+        className="py-20 bg-white px-4 md:px-8 border-b border-gray-100"
+      >
         <div className="max-w-7xl mx-auto">
           
           {/* Header without unfortunate text or messy titles */}
@@ -1660,54 +1753,34 @@ export default function App() {
           )}
 
         </div>
-      </section>
+      </motion.section>
 
       {/* 3. OUR PROJECTS PROGRESS GRAPH SECTION */}
       <ProjectStatsChart successTarget={successTarget} pendingTarget={pendingTarget} />
 
-      {/* OUR HANDOVER PROJECTS COMPACT CTA BUTTON / CARD WITH GLOW & SHINE */}
-      {/* Exact Placement: Pie Chart → Our Handover Projects Button → Team Information */}
-      <section className="py-7 sm:py-9 bg-gradient-to-b from-[#faf9f4] via-[#f5f2e8] to-[#faf9f4] px-4 md:px-8 border-b border-[#d4a762]/25 font-sans">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative bg-white/95 rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-[#d4a762]/40 shadow-sm hover:shadow-lg transition-all flex flex-col sm:flex-row items-center justify-between gap-5 overflow-hidden group">
-            {/* Subtle luxury background radial accent */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#d4a762]/8 rounded-full blur-2xl pointer-events-none -mr-16 -mt-16" />
+      {/* Dynamic Homepage Notice Box (Above Handover Projects Position) */}
+      <HomepageNoticeBox settings={siteSettings} position="above_handover" />
 
-            <div className="text-center sm:text-left relative z-10">
-              <div className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase text-[#966b2d] tracking-wider mb-1">
-                <Sparkles className="w-3.5 h-3.5 text-[#d4a762] animate-pulse" />
-                <span>{siteSettings.handoverBadge || 'বাস্তবায়িত কাজের সংগ্রহশালা (Delivered Works)'}</span>
-              </div>
-              <h4 className="text-base sm:text-lg font-black text-[#2c1d07] leading-snug">
-                {siteSettings.handoverTitle || 'আমাদের ক্লায়েন্টদের সফলভাবে সম্পন্ন ও হস্তান্তরিত প্রজেক্ট'}
-              </h4>
-              <p className="text-xs text-stone-500 font-medium mt-0.5 max-w-xl">
-                {siteSettings.handoverSubtitle || 'হস্তান্তরিত আসবাব ও ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম দেখতে নিচের বাটনে ক্লিক করুন।'}
-              </p>
-            </div>
+      {/* 3.5. HANDOVER PROJECTS SECTION (Lower the pie chart, Upper the team information) */}
+      <CompletedProjectsSection 
+        projects={completedProjects}
+        brandName={`${siteSettings.brandNameLeft} ${siteSettings.brandNameRight}`}
+        phone1={siteSettings.phone1}
+        onOpenFullPage={() => navigateTo('handover-projects')}
+      />
 
-            {/* Glowing & Shining Handover CTA Button */}
-            <div className="relative shrink-0 handover-pulse-glow rounded-2xl">
-              <button
-                type="button"
-                onClick={() => navigateTo('handover-projects')}
-                className="handover-shine-btn bg-gradient-to-r from-[#170f01] via-[#2f1c05] to-[#170f01] hover:from-[#2a1b05] hover:via-[#3f2708] hover:to-[#2a1b05] text-[#fdbf5e] hover:text-[#fff4d6] px-7 py-3.5 rounded-2xl text-sm font-black flex items-center gap-2.5 shadow-[0_4px_20px_rgba(212,167,98,0.35)] hover:shadow-[0_8px_30px_rgba(212,167,98,0.55)] transition-all duration-300 cursor-pointer active:scale-95 group shrink-0 border border-[#d4a762]/60 hover:border-[#fdbf5e]"
-              >
-                <div className="p-1 rounded-lg bg-[#d4a762]/20 group-hover:bg-[#d4a762]/35 transition-colors">
-                  <FolderCheck className="w-4 h-4 text-[#fdbf5e] group-hover:scale-110 transition-transform" />
-                </div>
-                <span className="font-outfit tracking-wide font-extrabold text-sm sm:text-base">
-                  {siteSettings.handoverButtonLabel || 'Our Handover Projects'}
-                </span>
-                <ArrowRight className="w-4 h-4 text-[#d4a762] group-hover:text-white group-hover:translate-x-1.5 transition-all" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Dynamic Homepage Notice Box (Above Team Information Position) */}
+      <HomepageNoticeBox settings={siteSettings} position="above_team" />
 
       {/* 4. TEAM INFORMATION PAGE */}
-      <section id="designer" className="py-20 bg-[#faf9f4] px-4 md:px-8 border-b border-gray-100">
+      <motion.section 
+        id="designer" 
+        initial={{ opacity: 0, y: 35 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-40px" }}
+        transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+        className="py-20 bg-[#faf9f4] px-4 md:px-8 border-b border-gray-100"
+      >
         <div className="max-w-7xl mx-auto">
           
           <div className="text-center max-w-xl mx-auto mb-12">
@@ -1778,7 +1851,10 @@ export default function App() {
           </div>
 
         </div>
-      </section>
+      </motion.section>
+
+      {/* Dynamic Homepage Notice Box (Above Footer / Contact Position) */}
+      <HomepageNoticeBox settings={siteSettings} position="above_footer" />
 
       {/* FACEBOOK & WHATSAPP SOCIAL CONNECT: Two Gorgeous Interactive Banners in a Grid layout */}
       <section id="contact" className="py-12 bg-[#faf9f4] px-4 md:px-8 border-b border-gray-100 font-sans">
@@ -3015,6 +3091,9 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Dynamic Homepage Notice Box (Floating Bottom Toast Position) */}
+      <HomepageNoticeBox settings={siteSettings} position="floating_bottom" />
 
     </div>
   );

@@ -16,17 +16,20 @@ import {
   Maximize2
 } from 'lucide-react';
 import { CompletedProject, ProjectCategory } from '../types';
+import { getCloudinaryVideoThumbnail, getProjectVideoThumbnail } from '../lib/videoThumbnail';
 
 interface CompletedProjectsSectionProps {
   projects: CompletedProject[];
   brandName?: string;
   phone1?: string;
+  onOpenFullPage?: () => void;
 }
 
 export const CompletedProjectsSection: React.FC<CompletedProjectsSectionProps> = ({
   projects,
   brandName = 'আবেদ ফার্নিচার ও ইন্টেরিয়র',
-  phone1 = '+8801816234157'
+  phone1 = '+8801816234157',
+  onOpenFullPage
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<'all' | ProjectCategory>('all');
   const [activeProject, setActiveProject] = useState<CompletedProject | null>(null);
@@ -143,15 +146,27 @@ export const CompletedProjectsSection: React.FC<CompletedProjectsSectionProps> =
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
           {filteredProjects.map((project, idx) => {
             const badge = getCategoryBadge(project.category);
-            const coverImg = 
-              project.coverImage || 
-              (project as any).image || 
-              (project as any).imgUrl || 
-              (project.photos && project.photos.find((p: string) => !!p)) || 
-              ((project as any).gallery && (project as any).gallery.find((g: string) => !!g)) || 
-              'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80';
             const totalPhotos = project.photos ? project.photos.length : 0;
             const totalVideos = project.videos ? project.videos.length : 0;
+            const hasVideo = totalVideos > 0;
+            const primaryVideo = hasVideo ? project.videos![0] : '';
+            const cloudVideoThumb = primaryVideo ? getCloudinaryVideoThumbnail(primaryVideo) : '';
+            const explicitVideoThumb = (project as any).videoThumbnail;
+
+            // Intelligent Real Video Thumbnail Determination:
+            // When a project has a video, the real video frame MUST be used as the thumbnail
+            let coverImg = project.coverImage || (project as any).image || (project as any).imgUrl || '';
+            const isPlaceholder = !coverImg || coverImg.includes('unsplash.com');
+
+            if (hasVideo && ((project as any).preferVideoThumbnail || isPlaceholder || (project.photos && project.photos.includes(coverImg)))) {
+              coverImg = explicitVideoThumb || cloudVideoThumb || (primaryVideo.includes('#t=') ? primaryVideo : `${primaryVideo}#t=0.5`);
+            } else if (!coverImg) {
+              coverImg = (project.photos && project.photos.find((p: string) => !!p)) ||
+                (hasVideo ? primaryVideo : '') ||
+                'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80';
+            }
+
+            const isDirectVideo = coverImg.endsWith('.mp4') || coverImg.includes('#t=') || coverImg.endsWith('.webm');
 
             return (
               <motion.div
@@ -167,18 +182,37 @@ export const CompletedProjectsSection: React.FC<CompletedProjectsSectionProps> =
                   onClick={() => handleOpenModal(project)}
                   className="relative h-64 sm:h-72 w-full overflow-hidden bg-stone-900 cursor-pointer"
                 >
-                  <img
-                    src={coverImg}
-                    alt={project.title}
-                    className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                    style={{ 
-                      imageRendering: '-webkit-optimize-contrast',
-                      WebkitBackfaceVisibility: 'hidden',
-                      transform: 'translateZ(0)'
-                    }}
-                    referrerPolicy="no-referrer"
-                  />
+                  {isDirectVideo ? (
+                    <video
+                      src={coverImg}
+                      preload="metadata"
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover object-center pointer-events-none transition-transform duration-700 group-hover:scale-105"
+                    />
+                  ) : (
+                    <img
+                      src={coverImg}
+                      alt={project.title}
+                      className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                      style={{ 
+                        imageRendering: '-webkit-optimize-contrast',
+                        WebkitBackfaceVisibility: 'hidden',
+                        transform: 'translateZ(0)'
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
+
+                  {/* Glowing Video Play Button Overlay if Project has Video */}
+                  {hasVideo && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-13 h-13 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-[0_0_24px_rgba(220,38,38,0.6)] border-2 border-white/70 transform group-hover:scale-110 transition-transform">
+                        <Play className="w-5 h-5 fill-white ml-0.5" />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Category Pill */}
                   <div className="absolute top-3.5 left-3.5">
@@ -207,7 +241,7 @@ export const CompletedProjectsSection: React.FC<CompletedProjectsSectionProps> =
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="bg-black/70 backdrop-blur-md text-white text-xs font-black px-4 py-2 rounded-full border border-white/30 flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-transform shadow-lg">
                       <Maximize2 className="w-3.5 h-3.5 text-[#fdbf5e]" />
-                      <span>গ্যালারি ও ভিডিও দেখুন</span>
+                      <span>{hasVideo ? 'ভিডিও ও গ্যালারি প্লে করুন' : 'গ্যালারি দেখুন'}</span>
                     </span>
                   </div>
 
@@ -278,6 +312,21 @@ export const CompletedProjectsSection: React.FC<CompletedProjectsSectionProps> =
             );
           })}
         </div>
+
+        {/* Bottom Call to Action for Full Handover Projects Page */}
+        {onOpenFullPage && (
+          <div className="mt-12 text-center animate-fade-in">
+            <button
+              type="button"
+              onClick={onOpenFullPage}
+              className="inline-flex items-center gap-2.5 bg-gradient-to-r from-[#170f01] via-[#332009] to-[#170f01] hover:from-[#d4a762] hover:to-[#b07e35] text-[#fdbf5e] hover:text-[#170f01] px-8 py-4 rounded-full text-xs sm:text-sm font-black uppercase tracking-wider transition-all duration-300 cursor-pointer shadow-xl border border-[#d4a762]/50 active:scale-95 group hover:shadow-[0_4px_25px_rgba(212,167,98,0.4)]"
+            >
+              <Sparkles className="w-4 h-4 text-[#ffe699] group-hover:text-[#170f01] animate-sparkle-twinkle" />
+              <span>সকল হ্যান্ডওভার প্রজেক্ট পূর্ণাঙ্গ পেজে দেখুন (Explore Full Gallery & Videos)</span>
+              <ExternalLink className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-1" />
+            </button>
+          </div>
+        )}
 
         {filteredProjects.length === 0 && (
           <div className="text-center py-16 bg-white rounded-3xl border border-stone-200 shadow-sm max-w-md mx-auto">

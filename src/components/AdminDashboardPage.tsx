@@ -25,12 +25,17 @@ import {
   ChevronRight,
   Database,
   Radio,
-  Sliders
+  Sliders,
+  Megaphone,
+  Bell
 } from 'lucide-react';
 import { Product, CompletedProject } from '../types';
 import AdminProductManager from './AdminProductManager';
 import { AdminProjectManager } from './AdminProjectManager';
 import VisitorAnalyticsDashboard from './VisitorAnalyticsDashboard';
+import { AdminOfferBannerManager } from './AdminOfferBannerManager';
+import { AdminNoticeManager } from './AdminNoticeManager';
+import { AdminAccessSecurityDashboard } from './AdminAccessSecurityDashboard';
 
 interface AdminDashboardPageProps {
   isAdminUnlocked: boolean;
@@ -98,11 +103,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   siteSettings,
   setSiteSettings,
   onSaveSiteSettings,
+  adminMasterPasscode,
   onUpdateMasterPasscode,
   resetAllToDefaults,
   onBackToHome
 }) => {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'maintenance' | 'products' | 'projects' | 'stats' | 'site_info' | 'security'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'notice' | 'offers' | 'maintenance' | 'products' | 'projects' | 'stats' | 'site_info' | 'security'>('analytics');
   const [newPasscode, setNewPasscode] = useState('');
   const [confirmPasscode, setConfirmPasscode] = useState('');
 
@@ -490,12 +496,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             <div className="p-1.5 rounded-2xl bg-[#080808] border border-white/[0.08] flex items-center gap-2 overflow-x-auto shadow-2xl">
               {[
                 { id: 'analytics', label: 'Visitor Analytics', icon: Activity },
+                { id: 'notice', label: 'Notice & Custom Text', icon: Bell },
+                { id: 'offers', label: 'Offers & Advertising', icon: Megaphone },
                 { id: 'maintenance', label: 'Maintenance Mode', icon: Power },
                 { id: 'products', label: 'Products & Images', icon: Package },
                 { id: 'projects', label: 'Handover Projects', icon: FolderCheck },
                 { id: 'stats', label: 'Project Stats', icon: BarChart },
                 { id: 'site_info', label: 'Site Content & Branding', icon: Settings },
-                { id: 'security', label: 'Admin Passcode', icon: KeyRound }
+                { id: 'security', label: 'Admin Access & Devices', icon: ShieldCheck }
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -525,6 +533,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               {/* TAB 0: VISITOR ANALYTICS */}
               {activeTab === 'analytics' && (
                 <VisitorAnalyticsDashboard />
+              )}
+
+              {/* TAB 0.2: HOMEPAGE NOTICE & CUSTOM TEXT */}
+              {activeTab === 'notice' && (
+                <AdminNoticeManager
+                  siteSettings={siteSettings}
+                  setSiteSettings={setSiteSettings}
+                  onSaveSiteSettings={onSaveSiteSettings}
+                  onShowNotification={(msg, type) => setAdminNotification({ message: msg, type })}
+                />
+              )}
+
+              {/* TAB 0.5: HOMEPAGE OFFERS & ADVERTISING */}
+              {activeTab === 'offers' && (
+                <AdminOfferBannerManager
+                  siteSettings={siteSettings}
+                  setSiteSettings={setSiteSettings}
+                  onSaveSiteSettings={onSaveSiteSettings}
+                  phone1={siteSettings.phone1}
+                  onShowNotification={(msg, type) => setAdminNotification({ message: msg, type })}
+                />
               )}
 
               {/* TAB 1: WEBSITE MAINTENANCE */}
@@ -791,52 +820,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 </div>
               )}
 
-              {/* TAB 6: SECURITY & MASTER PASSCODE */}
+              {/* TAB 6: SECURITY, MULTI-DEVICE & ADMIN LOGIN CAPACITY */}
               {activeTab === 'security' && (
-                <div className="space-y-6 max-w-md">
-                  <div className="border-b border-white/[0.08] pb-4">
-                    <h3 className="text-xl font-bold text-white font-serif flex items-center gap-2">
-                      <KeyRound className="w-5 h-5 text-[#d4a762]" />
-                      <span>এডমিন মাস্টার পাসকোড পরিবর্তন</span>
-                    </h3>
-                    <p className="text-xs text-stone-400 mt-1">
-                      এডমিন প্যানেলে দ্রুত আনলক করার মাস্টার পাসকোড এখান থেকে পরিবর্তন করতে পারেন।
-                    </p>
-                  </div>
-
-                  <form onSubmit={handlePasscodeSubmit} className="space-y-4">
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 block mb-1">নতুন পাসকোড (কমপক্ষে ৬ অক্ষর)</label>
-                      <input
-                        type="password"
-                        value={newPasscode}
-                        onChange={(e) => setNewPasscode(e.target.value)}
-                        placeholder="নতুন পাসকোড দিন"
-                        required
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-3 text-xs text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 block mb-1">পাসকোড নিশ্চিত করুন</label>
-                      <input
-                        type="password"
-                        value={confirmPasscode}
-                        onChange={(e) => setConfirmPasscode(e.target.value)}
-                        placeholder="একই পাসকোড পুনরায় দিন"
-                        required
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-3 text-xs text-white"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full bg-gradient-to-r from-[#d4a762] to-[#ad7d33] text-black font-black text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all cursor-pointer"
-                    >
-                      পাসকোড আপডেট করুন
-                    </button>
-                  </form>
-                </div>
+                <AdminAccessSecurityDashboard
+                  adminEmail={adminEmail}
+                  adminMasterPasscode={adminMasterPasscode}
+                  onUpdateMasterPasscode={onUpdateMasterPasscode}
+                  onShowNotification={(msg, type) => setAdminNotification({ message: msg, type })}
+                  failedAttempts={failedAttempts}
+                  lockoutSeconds={lockoutSeconds}
+                />
               )}
 
             </div>

@@ -37,6 +37,11 @@ import {
 } from '../lib/supabase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { 
+  captureVideoFrame, 
+  getCloudinaryVideoThumbnail, 
+  getProjectVideoThumbnail 
+} from '../lib/videoThumbnail';
 
 interface AdminProjectManagerProps {
   projects: CompletedProject[];
@@ -288,6 +293,17 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
       return;
     }
 
+    // Immediately capture real video frame from the file itself for instant real thumbnail!
+    try {
+      captureVideoFrame(file, 0.5).then((frameDataUrl) => {
+        if (frameDataUrl) {
+          setCoverImage(frameDataUrl);
+        }
+      });
+    } catch (e) {
+      console.warn('Frame capture note:', e);
+    }
+
     setIsUploadingVideo(true);
     setUploadProgressPercent(0);
     setUploadProgressText('ভিডিও Cloudinary-তে আপলোড হচ্ছে (0%)...');
@@ -303,7 +319,11 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
       );
       if (videoUrl) {
         setVideos(prev => [...prev, videoUrl]);
-        showNotification('প্রজেক্ট ভিডিও সফলভাবে Cloudinary-তে আপলোড হয়েছে!', 'success');
+        const realCloudThumb = getCloudinaryVideoThumbnail(videoUrl);
+        if (realCloudThumb) {
+          setCoverImage(realCloudThumb);
+        }
+        showNotification('প্রজেক্ট ভিডিও ও আসল ভিডিও থাম্বনেইল সফলভাবে সেট হয়েছে!', 'success');
       }
     } catch (err: any) {
       console.error('Video upload error:', err);
@@ -319,10 +339,19 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
   // Add Manual Video URL (e.g., direct mp4 or cloud storage link)
   const handleAddManualVideo = () => {
     if (!manualVideoUrl.trim()) return;
-    setVideos(prev => [...prev, manualVideoUrl.trim()]);
+    const vUrl = manualVideoUrl.trim();
+    setVideos(prev => [...prev, vUrl]);
+    const realCloudThumb = getCloudinaryVideoThumbnail(vUrl);
+    if (realCloudThumb) {
+      setCoverImage(realCloudThumb);
+    } else {
+      captureVideoFrame(vUrl, 0.5).then(f => {
+        if (f) setCoverImage(f);
+      });
+    }
     setManualVideoUrl('');
     setShowManualVideoInput(false);
-    showNotification('ভিডিও লিংক যুক্ত করা হয়েছে', 'success');
+    showNotification('ভিডিও লিংক ও থাম্বনেইল যুক্ত করা হয়েছে', 'success');
   };
 
   // Prompt Confirmation Modal
@@ -419,7 +448,19 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
 
     try {
       const projectId = editingProjectId || `project-${Date.now()}`;
-      const finalCover = coverImage.trim() || (photos.length > 0 ? photos[0] : 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80');
+      let finalCover = coverImage.trim();
+      const primaryVideoUrl = videos.length > 0 ? videos[0] : '';
+      const realVideoThumb = primaryVideoUrl ? getProjectVideoThumbnail(primaryVideoUrl) : '';
+
+      // If project has videos and no custom cover, or placeholder, use the real video thumbnail
+      if ((!finalCover || finalCover.includes('unsplash.com')) && primaryVideoUrl) {
+        finalCover = realVideoThumb || primaryVideoUrl;
+      }
+      if (!finalCover) {
+        finalCover = photos.length > 0 
+          ? photos[0] 
+          : (primaryVideoUrl ? (realVideoThumb || primaryVideoUrl) : '');
+      }
       
       // Clean payload - NEVER contain undefined so Firestore never rejects
       const projectPayload: any = {
@@ -436,6 +477,7 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
         image: finalCover,
         imgUrl: finalCover,
         imageUrl: finalCover,
+        videoThumbnail: realVideoThumb || '',
         photos: photos.filter(Boolean),
         gallery: photos.filter(Boolean),
         videos: videos.filter(Boolean),
@@ -1178,33 +1220,66 @@ export const AdminProjectManager: React.FC<AdminProjectManagerProps> = ({
                   {/* Uploaded Videos List / Player Preview */}
                   {videos.length > 0 ? (
                     <div className="space-y-3 pt-2">
-                      {videos.map((vidUrl, idx) => (
-                        <div key={idx} className="bg-white p-3 rounded-xl border border-stone-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                          <div className="flex items-center gap-3 w-full sm:w-auto">
-                            <div className="h-14 w-20 bg-black rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
-                              <video src={vidUrl} className="h-full w-full object-cover" />
-                            </div>
-                            <div className="truncate">
-                              <p className="text-xs font-bold text-stone-800 flex items-center gap-1.5">
-                                <Play className="w-3.5 h-3.5 text-red-600" />
-                                <span>ভিডিও #{idx + 1}</span>
-                              </p>
-                              <p className="text-[10px] text-stone-400 truncate max-w-xs">{vidUrl}</p>
-                            </div>
-                          </div>
+                      {videos.map((vidUrl, idx) => {
+                        const isThisVideoCover = coverImage === vidUrl || 
+                          (coverImage && coverImage.includes(vidUrl.replace(/\.(mp4|mov|webm)$/i, ''))) || 
+                          (idx === 0 && (!coverImage || coverImage.includes('unsplash.com')));
 
-                          <div className="flex items-center gap-2 self-end sm:self-center">
-                            <button
-                              type="button"
-                              onClick={() => requestDeleteVideo(idx)}
-                              className="text-xs text-red-600 hover:text-red-700 font-bold px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 flex items-center gap-1 cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>ভিডিও সরান</span>
-                            </button>
+                        return (
+                          <div key={idx} className={`bg-white p-3.5 rounded-xl border-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                            isThisVideoCover ? 'border-[#d4a762] ring-2 ring-[#d4a762]/30 bg-amber-50/20' : 'border-stone-200'
+                          }`}>
+                            <div className="flex items-center gap-3 w-full sm:w-auto">
+                              <div className="h-16 w-24 bg-black rounded-lg overflow-hidden shrink-0 relative flex items-center justify-center border border-stone-300">
+                                <video src={`${vidUrl}#t=0.5`} preload="metadata" muted playsInline className="h-full w-full object-cover pointer-events-none" />
+                                <div className="absolute inset-0 bg-black/25 flex items-center justify-center pointer-events-none">
+                                  <Play className="w-4 h-4 fill-white text-white drop-shadow-md" />
+                                </div>
+                              </div>
+                              <div className="truncate">
+                                <p className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                                  <Film className="w-3.5 h-3.5 text-red-600" />
+                                  <span>ভিডিও #{idx + 1}</span>
+                                  {isThisVideoCover && (
+                                    <span className="text-[10px] bg-[#d4a762] text-stone-950 font-black px-2 py-0.5 rounded-full">
+                                      ✓ প্রজেক্টের রিয়েল থাম্বনেইল
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-[10.5px] text-stone-500 font-mono truncate max-w-xs mt-0.5">{vidUrl}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 self-end sm:self-center flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const realThumb = getProjectVideoThumbnail(vidUrl);
+                                  setCoverImage(realThumb);
+                                  showNotification('এই ভিডিওটির আসল ফ্রেম প্রজেক্ট কভার/থাম্বনেইল হিসেবে সেট করা হয়েছে!', 'success');
+                                }}
+                                className={`text-xs px-3 py-1.5 rounded-lg border font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+                                  isThisVideoCover 
+                                    ? 'bg-[#d4a762] text-stone-950 border-[#d4a762] font-black shadow-xs' 
+                                    : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-300'
+                                }`}
+                              >
+                                <Star className={`w-3.5 h-3.5 ${isThisVideoCover ? 'fill-stone-950' : 'text-amber-500'}`} />
+                                <span>{isThisVideoCover ? 'রিয়েল থাম্বনেইল সক্রিয়' : 'এই ভিডিও থাম্বনেইল সেট করুন'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => requestDeleteVideo(idx)}
+                                className="text-xs text-red-600 hover:text-red-700 font-bold px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 flex items-center gap-1 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>মুছুন</span>
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="p-4 bg-stone-100/70 rounded-xl border border-dashed border-stone-200 text-center">

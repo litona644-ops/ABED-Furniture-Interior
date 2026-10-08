@@ -244,13 +244,19 @@ export async function fetchVisitorAnalyticsRecords(): Promise<VisitorRecord[]> {
     }
   }
 
-  // 3. Merge with local cache
+  // 3. Merge with local cache (purging any legacy seed records)
   try {
     const cachedStr = localStorage.getItem(VISITOR_CACHE_KEY);
     if (cachedStr) {
       const localList: VisitorRecord[] = JSON.parse(cachedStr);
+      // Filter out any fake seed records permanently
+      const realLocalList = localList.filter(item => item && !item.id.startsWith('seed_vis_'));
+      
+      // Update local storage with only clean, real records
+      localStorage.setItem(VISITOR_CACHE_KEY, JSON.stringify(realLocalList));
+
       const existingIds = new Set(records.map(r => r.id));
-      for (const item of localList) {
+      for (const item of realLocalList) {
         if (!existingIds.has(item.id)) {
           records.push(item);
           existingIds.add(item.id);
@@ -261,15 +267,8 @@ export async function fetchVisitorAnalyticsRecords(): Promise<VisitorRecord[]> {
     console.warn('Local cache merge note:', e);
   }
 
-  // 4. If newly deployed or database empty, generate realistic baseline activity
-  if (records.length < 15) {
-    const seed = generateSeedVisitorData();
-    records = [...records, ...seed];
-    // Cache the seed so it remains stable
-    try {
-      localStorage.setItem(VISITOR_CACHE_KEY, JSON.stringify(records));
-    } catch {}
-  }
+  // Filter out any seed records that might have come from elsewhere
+  records = records.filter(r => r && !r.id.startsWith('seed_vis_'));
 
   // Sort newest first
   records.sort((a, b) => b.timestamp - a.timestamp);
@@ -277,7 +276,7 @@ export async function fetchVisitorAnalyticsRecords(): Promise<VisitorRecord[]> {
 }
 
 /**
- * Calculates summary metrics for the Statistics Cards
+ * Calculates genuine summary metrics for the Statistics Cards - 100% Real
  */
 export function calculateVisitorStats(records: VisitorRecord[]): VisitorStats {
   const now = Date.now();
@@ -293,7 +292,7 @@ export function calculateVisitorStats(records: VisitorRecord[]): VisitorStats {
   let onlineCount = 0;
 
   for (const r of records) {
-    uniqueIps.add(r.ip);
+    if (r.ip) uniqueIps.add(r.ip);
     if (r.timestamp >= todayTimestamp) {
       todayCount++;
     }
@@ -302,22 +301,17 @@ export function calculateVisitorStats(records: VisitorRecord[]): VisitorStats {
     }
   }
 
-  // Ensure realistic minimum online pulse when Admin is active
-  if (onlineCount === 0 && records.length > 0) {
-    onlineCount = 2;
-  }
-
   return {
     totalVisitors: records.length,
-    todayVisitors: todayCount || Math.min(records.length, 14),
+    todayVisitors: todayCount,
     onlineVisitors: onlineCount,
-    uniqueVisitors: uniqueIps.size || Math.min(records.length, 12),
-    totalPageViews: Math.round(records.length * 2.4)
+    uniqueVisitors: uniqueIps.size,
+    totalPageViews: records.length
   };
 }
 
 /**
- * Groups visitor activity by date/hour for the Trend Chart
+ * Groups real visitor activity by date/hour for the Trend Chart - 100% Real
  */
 export function calculateTrendChartData(
   records: VisitorRecord[], 
@@ -347,18 +341,18 @@ export function calculateTrendChartData(
           Math.abs(curr - h) < Math.abs(prev - h) ? curr : prev
         );
         buckets[closestBucket].visitors += 1;
-        buckets[closestBucket].pageViews += Math.floor(Math.random() * 2) + 2;
+        buckets[closestBucket].pageViews += 1;
       }
     });
 
     return [
-      { label: '12:00 AM', visitors: buckets[0].visitors || 2, pageViews: buckets[0].pageViews || 5 },
-      { label: '04:00 AM', visitors: buckets[4].visitors || 1, pageViews: buckets[4].pageViews || 2 },
-      { label: '08:00 AM', visitors: buckets[8].visitors || 5, pageViews: buckets[8].pageViews || 12 },
-      { label: '12:00 PM', visitors: buckets[12].visitors || 9, pageViews: buckets[12].pageViews || 22 },
-      { label: '04:00 PM', visitors: buckets[16].visitors || 14, pageViews: buckets[16].pageViews || 34 },
-      { label: '08:00 PM', visitors: buckets[20].visitors || 11, pageViews: buckets[20].pageViews || 26 },
-      { label: '11:00 PM', visitors: buckets[23].visitors || 4, pageViews: buckets[23].pageViews || 9 },
+      { label: '12:00 AM', visitors: buckets[0].visitors, pageViews: buckets[0].pageViews },
+      { label: '04:00 AM', visitors: buckets[4].visitors, pageViews: buckets[4].pageViews },
+      { label: '08:00 AM', visitors: buckets[8].visitors, pageViews: buckets[8].pageViews },
+      { label: '12:00 PM', visitors: buckets[12].visitors, pageViews: buckets[12].pageViews },
+      { label: '04:00 PM', visitors: buckets[16].visitors, pageViews: buckets[16].pageViews },
+      { label: '08:00 PM', visitors: buckets[20].visitors, pageViews: buckets[20].pageViews },
+      { label: '11:00 PM', visitors: buckets[23].visitors, pageViews: buckets[23].pageViews },
     ];
   }
 
@@ -373,12 +367,10 @@ export function calculateTrendChartData(
     const dayRecords = records.filter(r => r.timestamp >= start && r.timestamp < end);
     const dayName = d.toLocaleDateString('bn-BD', { month: 'short', day: 'numeric' });
 
-    // Baseline fallbacks if day has sparse real records to show aesthetic chart
-    const count = dayRecords.length || Math.floor((Math.sin(i * 0.7) + 1.2) * 6 + 4);
     result.push({
       label: dayName,
-      visitors: count,
-      pageViews: Math.round(count * 2.3)
+      visitors: dayRecords.length,
+      pageViews: dayRecords.length
     });
   }
 
@@ -431,71 +423,17 @@ export function detectSuspiciousActivity(records: VisitorRecord[]): SuspiciousAc
     }
   });
 
-  // Ensure at least 1-2 demo monitoring items if traffic is totally fresh
-  if (suspicious.length === 0) {
-    suspicious.push({
-      ip: '103.145.22.45',
-      count: 14,
-      timeRange: '12 minutes range',
-      lastSeen: 'সবেমাত্র (Just now)',
-      riskLevel: 'medium',
-      reason: 'ঘন ঘন পেইজ রিলোড ও নেভিগেশন (High Frequency)',
-      location: 'Dhaka, Bangladesh'
-    });
-  }
-
   return suspicious;
 }
 
 /**
- * Generates baseline real-looking Bangladeshi visitor traffic for immediate dashboard visualization
+ * Clears local visitor cache (useful for admin testing)
  */
-function generateSeedVisitorData(): VisitorRecord[] {
-  const now = Date.now();
-  const pages = ['/', '/#products', '/handover-projects', '/#contact', '/#designer'];
-  const locations = [
-    { city: 'Dhaka', country: 'Bangladesh', ip: '103.145.22.12' },
-    { city: 'Chittagong', country: 'Bangladesh', ip: '118.179.88.42' },
-    { city: 'Dhaka', country: 'Bangladesh', ip: '103.145.22.45' },
-    { city: 'Sylhet', country: 'Bangladesh', ip: '203.76.110.15' },
-    { city: 'Rajshahi', country: 'Bangladesh', ip: '103.204.244.60' },
-    { city: 'Khulna', country: 'Bangladesh', ip: '180.234.90.18' },
-    { city: 'Gazipur', country: 'Bangladesh', ip: '103.108.140.22' },
-    { city: 'Narayanganj', country: 'Bangladesh', ip: '103.145.22.89' }
-  ];
-
-  const devices: ('desktop' | 'mobile' | 'tablet')[] = ['mobile', 'mobile', 'desktop', 'desktop', 'tablet'];
-  const browsers = ['Google Chrome', 'Google Chrome', 'Apple Safari', 'Samsung Internet', 'Mozilla Firefox'];
-  const oss = ['Android', 'Android', 'Windows', 'iOS', 'macOS'];
-  const referrers = ['Facebook Page', 'Direct / Bookmark', 'Google Search', 'WhatsApp Link', 'Direct / Bookmark'];
-
-  const seed: VisitorRecord[] = [];
-
-  for (let i = 0; i < 48; i++) {
-    const minutesAgo = i * 22 + Math.floor(Math.random() * 15);
-    const ts = now - (minutesAgo * 60 * 1000);
-    const loc = locations[i % locations.length];
-    const dev = devices[i % devices.length];
-    const br = browsers[i % browsers.length];
-    const os = oss[i % oss.length];
-    const page = pages[i % pages.length];
-    const ref = referrers[i % referrers.length];
-
-    seed.push({
-      id: `seed_vis_${i}_${ts}`,
-      ip: loc.ip,
-      country: loc.country,
-      city: loc.city,
-      device: dev,
-      browser: br,
-      os,
-      visitedPage: page,
-      referrer: ref,
-      userAgent: `Mozilla/5.0 (${os}; ${dev}) AppleWebKit/537.36`,
-      timestamp: ts,
-      createdAt: new Date(ts).toISOString()
-    });
+export function clearLocalVisitorCache(): void {
+  try {
+    localStorage.removeItem(VISITOR_CACHE_KEY);
+  } catch (e) {
+    console.warn('Error clearing visitor cache:', e);
   }
-
-  return seed;
 }
+

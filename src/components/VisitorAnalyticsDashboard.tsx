@@ -167,13 +167,13 @@ export const VisitorAnalyticsDashboard: React.FC = () => {
         <div>
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10.5px] font-mono uppercase tracking-wider mb-2">
             <Radio className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
-            <span>Live Visitor Analytics & Security</span>
+            <span>১০০% রিয়েল ভিজিটর লাইভ ট্র্যাকিং (Real Live Data — No Fake News)</span>
           </div>
           <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
             <span>Visitor Analytics Dashboard</span>
           </h2>
           <p className="text-xs text-stone-400 mt-0.5">
-            রিয়েল-টাইম ভিজিটর ট্র্যাকিং, ট্রাফিক প্রবণতা ও সার্ভার নিরাপত্তা পর্যবেক্ষণ।
+            বাস্তবে ওয়েবসাইট ভিজিট করা ক্লায়েন্টদের আসল IP, ডিভাইস ও পেইজ ভিউয়ের প্রত্যক্ষ প্রমাণ।
           </p>
         </div>
 
@@ -217,7 +217,7 @@ export const VisitorAnalyticsDashboard: React.FC = () => {
           </div>
           <div>
             <span className="text-3xl font-black text-white font-mono">{stats.totalVisitors}</span>
-            <p className="text-[11px] text-stone-400 mt-1">সর্বমোট সেশন ট্র্যাকিং</p>
+            <p className="text-[11px] text-stone-400 mt-1">আসল সর্বমোট ভিজিট</p>
           </div>
         </div>
 
@@ -232,11 +232,8 @@ export const VisitorAnalyticsDashboard: React.FC = () => {
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-black text-amber-400 font-mono">{stats.todayVisitors}</span>
-              <span className="text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-0.5">
-                <TrendingUp className="w-3 h-3" /> +18%
-              </span>
             </div>
-            <p className="text-[11px] text-stone-400 mt-1">আজকের মোট ভিজিটর</p>
+            <p className="text-[11px] text-stone-400 mt-1">আজকের আসল ভিজিটর</p>
           </div>
         </div>
 
