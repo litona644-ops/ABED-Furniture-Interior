@@ -175,6 +175,7 @@ const DEFAULT_SETTINGS = {
   offerBannerImage: '',
   offerBannerExpiry: 'অফারের মেয়াদ সীমিত সময়',
   offerBannerStyle: 'both',
+  offerBannerNoBg: true,
   // Dynamic Homepage Notice Box (Written by Admin, Light Gradients, Placed on Homepage)
   noticeEnabled: false,
   noticeText: 'জরুরি বিজ্ঞপ্তি: আমাদের শোরুমে নতুন প্রিমিয়াম চিটাগাং সেগুন কাঠের কালেকশন এসে পৌঁছেছে!',

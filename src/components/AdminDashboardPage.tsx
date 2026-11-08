@@ -1290,6 +1290,130 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                     </div>
                   </div>
 
+                  {/* Group 9: হোমপেজ অফার ও বিজ্ঞাপন টেক্সট (Homepage Offer Banner - No Background) */}
+                  <div className="bg-stone-900/60 p-5 sm:p-6 rounded-2xl border border-stone-800 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-800 pb-3">
+                      <div>
+                        <span className="text-xs font-black text-[#fdbf5e] uppercase tracking-wider font-mono block">
+                          ৯. হোমপেজ অফার ও বিজ্ঞাপন (Homepage Offer Banner - No Background)
+                        </span>
+                        <p className="text-[11px] text-stone-400 mt-0.5">
+                          হোমপেজে কোনো ব্যাকগ্রাউন্ড ছাড়াই সরাসরি ক্লিন টেক্সটে প্রদর্শিত হবে।
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSiteSettings({ ...siteSettings, offerBannerEnabled: !siteSettings.offerBannerEnabled })}
+                          className={`px-3 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer border ${
+                            siteSettings.offerBannerEnabled
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : 'bg-stone-800 text-stone-400 border-stone-700'
+                          }`}
+                        >
+                          {siteSettings.offerBannerEnabled ? '🟢 লাইভ সক্রিয়' : '⚪ বন্ধ রয়েছে'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('offers')}
+                          className="px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-bold text-[#d4a762] border border-[#d4a762]/30 transition-all cursor-pointer flex items-center gap-1"
+                        >
+                          <Megaphone className="w-3.5 h-3.5" />
+                          <span>বিস্তারিত অফার প্যানেল</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Background Mode: No Background vs Card */}
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1.5">
+                          ব্যাকগ্রাউন্ড মোড (Background Appearance)
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSiteSettings({ ...siteSettings, offerBannerNoBg: true })}
+                            className={`p-2.5 rounded-xl text-xs font-bold border text-left transition-all cursor-pointer ${
+                              siteSettings.offerBannerNoBg !== false
+                                ? 'bg-[#d4a762] text-stone-950 border-[#d4a762] font-black'
+                                : 'bg-black border-white/[0.1] text-stone-300'
+                            }`}
+                          >
+                            <span>✓ নো-ব্যাকগ্রাউন্ড (No Background)</span>
+                            <span className="block text-[10px] opacity-80 mt-0.5">কোনো ব্যাকগ্রাউন্ড ছাড়া সরাসরি ক্লিন টেক্সট</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSiteSettings({ ...siteSettings, offerBannerNoBg: false })}
+                            className={`p-2.5 rounded-xl text-xs font-bold border text-left transition-all cursor-pointer ${
+                              siteSettings.offerBannerNoBg === false
+                                ? 'bg-[#d4a762] text-stone-950 border-[#d4a762] font-black'
+                                : 'bg-black border-white/[0.1] text-stone-300'
+                            }`}
+                          >
+                            <span>ক্লাসিক কার্ড ব্যাকগ্রাউন্ড</span>
+                            <span className="block text-[10px] opacity-80 mt-0.5">গাঢ় গ্রেডিয়েন্ট কার্ড বক্স</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Headline */}
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">
+                          অফার শিরোনাম (Offer Headline)
+                        </label>
+                        <input
+                          type="text"
+                          value={siteSettings.offerBannerTitle || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, offerBannerTitle: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-[#fdbf5e] font-black"
+                          placeholder="যেমন: চিটাগাং সেগুন কাঠের সকল আসবাবে ১০% পর্যন্ত বিশেষ ছাড়!"
+                        />
+                      </div>
+
+                      {/* Message / Description */}
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">
+                          অফার বার্তা / বিস্তারিত টেক্সট (Offer Message)
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={siteSettings.offerBannerDesc || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, offerBannerDesc: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          placeholder="অফারের বিস্তারিত শর্তাবলী বা সুবিধা..."
+                        />
+                      </div>
+
+                      {/* Button Text & Badge */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">অ্যাকশন বাটনের টেক্সট</label>
+                          <input
+                            type="text"
+                            value={siteSettings.offerBannerBtnText || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, offerBannerBtnText: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                            placeholder="WhatsApp-এ অফার বুক করুন"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">টপ ব্যাজ টেক্সট</label>
+                          <input
+                            type="text"
+                            value={siteSettings.offerBannerBadge || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, offerBannerBadge: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                            placeholder="🔥 বিশেষ অফার"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Bottom Save Button */}
                   <div className="pt-4 flex justify-end">
                     <button

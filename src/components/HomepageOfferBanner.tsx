@@ -141,33 +141,53 @@ export const HomepageOfferBanner: React.FC<HomepageOfferBannerProps> = ({
     }
   };
 
+  const isNoBg = settings.offerBannerNoBg !== false;
+
   // SPOTLIGHT CARD DISPLAY (used on Homepage between Hero and Products)
   if (mode === 'card') {
     return (
       <section className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 relative z-20 font-sans">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className={`relative ${theme.wrapperBg} ${theme.border} border-2 rounded-3xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.4)] overflow-hidden text-white`}
+          className={
+            isNoBg
+              ? "relative bg-transparent border-0 shadow-none overflow-hidden text-[#2c1d07] py-2"
+              : `relative ${theme.wrapperBg} ${theme.border} border-2 rounded-3xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.4)] overflow-hidden text-white`
+          }
         >
-          {/* Ambient Lighting */}
-          <div className={`absolute -right-16 -top-16 w-80 h-80 bg-gradient-to-br ${theme.glow} rounded-full blur-3xl pointer-events-none`} />
+          {/* Ambient Lighting only when dark card background is enabled */}
+          {!isNoBg && (
+            <div className={`absolute -right-16 -top-16 w-80 h-80 bg-gradient-to-br ${theme.glow} rounded-full blur-3xl pointer-events-none`} />
+          )}
 
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
             {/* Left Content */}
             <div className="flex-1 space-y-3">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <span className={`inline-flex items-center gap-1.5 text-xs font-black uppercase px-3 py-1 rounded-full border backdrop-blur-md ${theme.badgeBg}`}>
+                <span
+                  className={
+                    isNoBg
+                      ? "inline-flex items-center gap-1.5 text-xs font-black uppercase px-3.5 py-1 rounded-full bg-[#d4a762]/15 text-[#8f6320] border border-[#d4a762]/35"
+                      : `inline-flex items-center gap-1.5 text-xs font-black uppercase px-3 py-1 rounded-full border backdrop-blur-md ${theme.badgeBg}`
+                  }
+                >
                   <BadgeIcon className="w-3.5 h-3.5" />
                   <span>{badgeText}</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                 </span>
 
                 {expiryText && (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-stone-300 font-semibold bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full">
-                    <Calendar className="w-3 h-3 text-[#fdbf5e]" />
+                  <span
+                    className={
+                      isNoBg
+                        ? "inline-flex items-center gap-1 text-[11px] text-stone-600 font-semibold bg-stone-100 border border-stone-200 px-2.5 py-0.5 rounded-full"
+                        : "inline-flex items-center gap-1 text-[11px] text-stone-300 font-semibold bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full"
+                    }
+                  >
+                    <Calendar className="w-3 h-3 text-[#b07e35]" />
                     <span>{expiryText}</span>
                   </span>
                 )}
@@ -176,22 +196,38 @@ export const HomepageOfferBanner: React.FC<HomepageOfferBannerProps> = ({
                   <button
                     type="button"
                     onClick={handleCopyCoupon}
-                    className="inline-flex items-center gap-1.5 text-[11px] text-[#fdbf5e] font-mono font-bold bg-[#d4a762]/15 border border-[#d4a762]/40 hover:bg-[#d4a762]/25 px-2.5 py-0.5 rounded-full cursor-pointer transition-all active:scale-95"
+                    className={
+                      isNoBg
+                        ? "inline-flex items-center gap-1.5 text-[11px] text-[#8f6320] font-mono font-bold bg-[#d4a762]/10 border border-[#d4a762]/35 hover:bg-[#d4a762]/20 px-2.5 py-0.5 rounded-full cursor-pointer transition-all active:scale-95"
+                        : "inline-flex items-center gap-1.5 text-[11px] text-[#fdbf5e] font-mono font-bold bg-[#d4a762]/15 border border-[#d4a762]/40 hover:bg-[#d4a762]/25 px-2.5 py-0.5 rounded-full cursor-pointer transition-all active:scale-95"
+                    }
                     title="ক্লিক করে কোড কপি করুন"
                   >
                     <Tag className="w-3 h-3" />
                     <span>কোড: {coupon}</span>
-                    {copiedCoupon ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-[#fdbf5e]" />}
+                    {copiedCoupon ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-[#b07e35]" />}
                   </button>
                 )}
               </div>
 
-              <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white font-serif leading-tight">
+              <h3
+                className={
+                  isNoBg
+                    ? "text-2xl sm:text-3xl md:text-4xl font-black text-[#2c1d07] font-serif leading-tight"
+                    : "text-xl sm:text-2xl md:text-3xl font-black text-white font-serif leading-tight"
+                }
+              >
                 {titleText}
               </h3>
 
               {descText && (
-                <p className="text-xs sm:text-sm md:text-base text-stone-300 leading-relaxed font-medium max-w-3xl">
+                <p
+                  className={
+                    isNoBg
+                      ? "text-sm sm:text-base text-stone-700 leading-relaxed font-sans max-w-3xl font-medium"
+                      : "text-xs sm:text-sm md:text-base text-stone-300 leading-relaxed font-medium max-w-3xl"
+                  }
+                >
                   {descText}
                 </p>
               )}
@@ -199,7 +235,13 @@ export const HomepageOfferBanner: React.FC<HomepageOfferBannerProps> = ({
 
             {/* Optional Banner Photo */}
             {imageUrl && (
-              <div className="w-full sm:w-48 h-32 sm:h-36 rounded-2xl overflow-hidden border border-[#d4a762]/30 shadow-xl shrink-0">
+              <div
+                className={
+                  isNoBg
+                    ? "w-full sm:w-52 h-32 sm:h-36 rounded-2xl overflow-hidden border border-stone-200/80 shadow-sm shrink-0"
+                    : "w-full sm:w-48 h-32 sm:h-36 rounded-2xl overflow-hidden border border-[#d4a762]/30 shadow-xl shrink-0"
+                }
+              >
                 <img src={imageUrl} alt={titleText} className="w-full h-full object-cover" />
               </div>
             )}
@@ -209,7 +251,11 @@ export const HomepageOfferBanner: React.FC<HomepageOfferBannerProps> = ({
               <button
                 type="button"
                 onClick={handleActionClick}
-                className={`${theme.btnBg} px-7 py-4 rounded-2xl text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2.5 cursor-pointer transition-all hover:scale-105 active:scale-95 w-full sm:w-auto`}
+                className={
+                  isNoBg
+                    ? "bg-gradient-to-r from-[#d4a762] via-[#e0b873] to-[#ad7d33] hover:brightness-105 active:scale-95 text-stone-950 font-black px-7 py-3.5 rounded-2xl text-xs sm:text-sm shadow-md flex items-center justify-center gap-2.5 cursor-pointer transition-all w-full sm:w-auto"
+                    : `${theme.btnBg} px-7 py-4 rounded-2xl text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2.5 cursor-pointer transition-all hover:scale-105 active:scale-95 w-full sm:w-auto`
+                }
               >
                 {btnAction === 'whatsapp' && <MessageCircle className="w-4.5 h-4.5" />}
                 {btnAction === 'call' && <Phone className="w-4.5 h-4.5" />}
@@ -229,31 +275,50 @@ export const HomepageOfferBanner: React.FC<HomepageOfferBannerProps> = ({
   return (
     <AnimatePresence>
       <motion.aside 
-        initial={{ opacity: 0, y: -20, scale: 0.98 }}
+        initial={{ opacity: 0, y: -15, scale: 0.99 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -20, scale: 0.98 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full px-4 sm:px-6 md:px-8 py-3.5 relative z-30 font-sans"
+        exit={{ opacity: 0, y: -15, scale: 0.99 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full px-4 sm:px-6 md:px-8 py-3 relative z-30 font-sans"
         aria-label="বিশেষ ঘোষণা ও অফার ব্যানার"
       >
         <div className="max-w-7xl mx-auto">
-          <div className={`relative ${theme.wrapperBg} ${theme.border} border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-white`}>
-            
-            {/* Ambient Corner Flare */}
-            <div className={`absolute top-0 right-0 w-72 h-72 bg-gradient-to-br ${theme.glow} rounded-full blur-3xl pointer-events-none -mr-20 -mt-20`} />
+          <div
+            className={
+              isNoBg
+                ? "relative bg-transparent border-b border-amber-950/10 py-3 overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-[#2c1d07]"
+                : `relative ${theme.wrapperBg} ${theme.border} border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-[0_8px_30px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-white`
+            }
+          >
+            {/* Ambient Corner Flare only when dark card background is enabled */}
+            {!isNoBg && (
+              <div className={`absolute top-0 right-0 w-72 h-72 bg-gradient-to-br ${theme.glow} rounded-full blur-3xl pointer-events-none -mr-20 -mt-20`} />
+            )}
 
             {/* Left Content Area */}
             <div className="flex-1 pr-8 md:pr-0">
               <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
-                <span className={`inline-flex items-center gap-1.5 text-xs font-black uppercase px-3 py-1 rounded-full border backdrop-blur-md ${theme.badgeBg}`}>
+                <span
+                  className={
+                    isNoBg
+                      ? "inline-flex items-center gap-1.5 text-xs font-black uppercase px-3 py-0.5 rounded-full bg-[#d4a762]/15 text-[#8f6320] border border-[#d4a762]/35"
+                      : `inline-flex items-center gap-1.5 text-xs font-black uppercase px-3 py-1 rounded-full border backdrop-blur-md ${theme.badgeBg}`
+                  }
+                >
                   <BadgeIcon className="w-3.5 h-3.5" />
                   <span>{badgeText}</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                 </span>
 
                 {expiryText && (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-stone-300 font-semibold bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full">
-                    <Calendar className="w-3 h-3 text-[#fdbf5e]" />
+                  <span
+                    className={
+                      isNoBg
+                        ? "inline-flex items-center gap-1 text-[11px] text-stone-600 font-semibold bg-stone-100 border border-stone-200 px-2.5 py-0.5 rounded-full"
+                        : "inline-flex items-center gap-1 text-[11px] text-stone-300 font-semibold bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full"
+                    }
+                  >
+                    <Calendar className="w-3 h-3 text-[#b07e35]" />
                     <span>{expiryText}</span>
                   </span>
                 )}
@@ -262,22 +327,38 @@ export const HomepageOfferBanner: React.FC<HomepageOfferBannerProps> = ({
                   <button
                     type="button"
                     onClick={handleCopyCoupon}
-                    className="inline-flex items-center gap-1.5 text-[11px] text-[#fdbf5e] font-mono font-bold bg-[#d4a762]/15 border border-[#d4a762]/40 hover:bg-[#d4a762]/25 px-2.5 py-0.5 rounded-full cursor-pointer transition-all active:scale-95"
+                    className={
+                      isNoBg
+                        ? "inline-flex items-center gap-1.5 text-[11px] text-[#8f6320] font-mono font-bold bg-[#d4a762]/10 border border-[#d4a762]/35 hover:bg-[#d4a762]/20 px-2.5 py-0.5 rounded-full cursor-pointer transition-all active:scale-95"
+                        : "inline-flex items-center gap-1.5 text-[11px] text-[#fdbf5e] font-mono font-bold bg-[#d4a762]/15 border border-[#d4a762]/40 hover:bg-[#d4a762]/25 px-2.5 py-0.5 rounded-full cursor-pointer transition-all active:scale-95"
+                    }
                     title="ক্লিক করে কোড কপি করুন"
                   >
                     <Tag className="w-3 h-3" />
                     <span>কোড: {coupon}</span>
-                    {copiedCoupon ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-[#fdbf5e]" />}
+                    {copiedCoupon ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-[#b07e35]" />}
                   </button>
                 )}
               </div>
 
-              <h2 className="text-base sm:text-xl md:text-2xl font-black text-white font-serif leading-snug">
+              <h2
+                className={
+                  isNoBg
+                    ? "text-lg sm:text-2xl font-black text-[#2c1d07] font-serif leading-snug"
+                    : "text-base sm:text-xl md:text-2xl font-black text-white font-serif leading-snug"
+                }
+              >
                 {titleText}
               </h2>
 
               {descText && (
-                <p className="text-xs sm:text-sm text-stone-300 mt-1 leading-relaxed max-w-3xl font-medium">
+                <p
+                  className={
+                    isNoBg
+                      ? "text-xs sm:text-sm text-stone-600 mt-1 leading-relaxed max-w-3xl font-medium font-sans"
+                      : "text-xs sm:text-sm text-stone-300 mt-1 leading-relaxed max-w-3xl font-medium"
+                  }
+                >
                   {descText}
                 </p>
               )}
@@ -285,7 +366,13 @@ export const HomepageOfferBanner: React.FC<HomepageOfferBannerProps> = ({
 
             {/* Optional Thumbnail Image */}
             {imageUrl && (
-              <div className="hidden sm:block w-20 h-20 rounded-xl overflow-hidden border border-[#d4a762]/30 shadow-md shrink-0">
+              <div
+                className={
+                  isNoBg
+                    ? "hidden sm:block w-20 h-20 rounded-xl overflow-hidden border border-stone-200/80 shadow-xs shrink-0"
+                    : "hidden sm:block w-20 h-20 rounded-xl overflow-hidden border border-[#d4a762]/30 shadow-md shrink-0"
+                }
+              >
                 <img src={imageUrl} alt={titleText} className="w-full h-full object-cover" />
               </div>
             )}
@@ -295,7 +382,11 @@ export const HomepageOfferBanner: React.FC<HomepageOfferBannerProps> = ({
               <button
                 type="button"
                 onClick={handleActionClick}
-                className={`${theme.btnBg} px-6 py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-105 active:scale-95 w-full md:w-auto`}
+                className={
+                  isNoBg
+                    ? "bg-gradient-to-r from-[#d4a762] via-[#e0b873] to-[#ad7d33] hover:brightness-105 active:scale-95 text-stone-950 font-black px-6 py-2.5 rounded-xl sm:rounded-2xl text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all w-full md:w-auto"
+                    : `${theme.btnBg} px-6 py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-105 active:scale-95 w-full md:w-auto`
+                }
               >
                 {btnAction === 'whatsapp' && <MessageCircle className="w-4 h-4" />}
                 {btnAction === 'call' && <Phone className="w-4 h-4" />}
@@ -309,7 +400,11 @@ export const HomepageOfferBanner: React.FC<HomepageOfferBannerProps> = ({
               <button
                 type="button"
                 onClick={() => setIsDismissed(true)}
-                className="absolute top-3.5 right-3.5 md:relative md:top-auto md:right-auto p-2 text-stone-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                className={
+                  isNoBg
+                    ? "absolute top-2.5 right-2.5 md:relative md:top-auto md:right-auto p-2 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-full transition-colors cursor-pointer"
+                    : "absolute top-3.5 right-3.5 md:relative md:top-auto md:right-auto p-2 text-stone-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                }
                 title="ব্যানারটি বন্ধ করুন"
                 aria-label="Close Announcement Banner"
               >
@@ -325,3 +420,4 @@ export const HomepageOfferBanner: React.FC<HomepageOfferBannerProps> = ({
 };
 
 export default HomepageOfferBanner;
+

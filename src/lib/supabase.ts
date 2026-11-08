@@ -307,6 +307,7 @@ export function mapRowToSiteSettings(row: any): Record<string, any> {
     offerBannerImage: row.offer_banner_image ?? row.offerBannerImage ?? '',
     offerBannerExpiry: row.offer_banner_expiry ?? row.offerBannerExpiry ?? '',
     offerBannerStyle: row.offer_banner_style ?? row.offerBannerStyle ?? 'both',
+    offerBannerNoBg: row.offer_banner_no_bg !== undefined ? Boolean(row.offer_banner_no_bg) : (row.offerBannerNoBg !== undefined ? Boolean(row.offerBannerNoBg) : true),
     // Dynamic Homepage Notice Box
     noticeEnabled: Boolean(row.notice_enabled ?? row.noticeEnabled),
     noticeText: row.notice_text ?? row.noticeText ?? '',
@@ -366,6 +367,7 @@ export function mapSiteSettingsToRow(s: Record<string, any>): Record<string, any
     offer_banner_image: s.offerBannerImage || '',
     offer_banner_expiry: s.offerBannerExpiry || '',
     offer_banner_style: s.offerBannerStyle || 'both',
+    offer_banner_no_bg: s.offerBannerNoBg !== false,
     // Dynamic Homepage Notice Box
     notice_enabled: Boolean(s.noticeEnabled),
     notice_text: s.noticeText || '',

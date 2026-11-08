@@ -110,6 +110,7 @@ export const AdminOfferBannerManager: React.FC<AdminOfferBannerManagerProps> = (
 
   // Settings values with defaults
   const isEnabled = Boolean(siteSettings.offerBannerEnabled);
+  const isNoBg = siteSettings.offerBannerNoBg !== false;
   const bannerType = siteSettings.offerBannerType || 'offer';
   const badgeText = siteSettings.offerBannerBadge || '🔥 বিশেষ অফার';
   const titleText = siteSettings.offerBannerTitle || '';
@@ -133,6 +134,7 @@ export const AdminOfferBannerManager: React.FC<AdminOfferBannerManagerProps> = (
     setSiteSettings((prev: any) => ({
       ...prev,
       offerBannerEnabled: true,
+      offerBannerNoBg: true,
       offerBannerType: preset.type,
       offerBannerBadge: preset.badge,
       offerBannerTitle: preset.title,
@@ -169,6 +171,7 @@ export const AdminOfferBannerManager: React.FC<AdminOfferBannerManagerProps> = (
     setSiteSettings((prev: any) => ({
       ...prev,
       offerBannerEnabled: false,
+      offerBannerNoBg: true,
       offerBannerTitle: '',
       offerBannerDesc: '',
       offerBannerBadge: '🔥 বিশেষ অফার',
@@ -412,6 +415,54 @@ export const AdminOfferBannerManager: React.FC<AdminOfferBannerManagerProps> = (
             <span>অ্যাকশন বাটন, ছবি ও ডিসপ্লে পজিশন</span>
           </h4>
 
+          {/* Background Appearance: No Background vs Gradient Card */}
+          <div>
+            <label className="text-xs font-bold text-stone-300 block mb-1.5 flex items-center justify-between">
+              <span>হোমপেজে ব্যাকগ্রাউন্ড স্টাইল (Background Appearance)</span>
+              <span className="text-[10px] text-emerald-400 font-bold">✓ নো-ব্যাকগ্রাউন্ড ডিফল্ট</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => updateSetting('offerBannerNoBg', true)}
+                className={`p-3 rounded-xl text-xs font-bold border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                  isNoBg
+                    ? 'bg-[#d4a762] text-stone-950 border-[#d4a762] font-black shadow-md'
+                    : 'bg-black border-white/[0.1] text-stone-300 hover:bg-white/[0.04]'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>নো-ব্যাকগ্রাউন্ড (No Background)</span>
+                </div>
+                <span className={`text-[10px] leading-tight ${isNoBg ? 'text-stone-900 font-bold' : 'text-stone-400'}`}>
+                  কোনো ব্যাকগ্রাউন্ড বা কার্ড ছাড়াই সরাসরি টেক্সট
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => updateSetting('offerBannerNoBg', false)}
+                className={`p-3 rounded-xl text-xs font-bold border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                  !isNoBg
+                    ? 'bg-[#d4a762] text-stone-950 border-[#d4a762] font-black shadow-md'
+                    : 'bg-black border-white/[0.1] text-stone-300 hover:bg-white/[0.04]'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 shrink-0" />
+                  <span>গ্রেডিয়েন্ট কার্ড (Gradient Card)</span>
+                </div>
+                <span className={`text-[10px] leading-tight ${!isNoBg ? 'text-stone-900 font-bold' : 'text-stone-400'}`}>
+                  গাঢ় ব্যাকগ্রাউন্ডের ক্লাসিক কার্ড বক্স
+                </span>
+              </button>
+            </div>
+            <p className="text-[10.5px] text-stone-400 mt-1.5 leading-relaxed">
+              💡 আপনি অফারের জন্য যেকোনো টেক্সট লিখলে তা হোমপেজে সম্পূর্ণ স্বচ্ছ ও সুন্দরভাবে কোনো ব্যাকগ্রাউন্ড ছাড়াই প্রদর্শিত হবে।
+            </p>
+          </div>
+
           {/* Display Style */}
           <div>
             <label className="text-xs font-bold text-stone-300 block mb-1.5">
@@ -546,54 +597,105 @@ export const AdminOfferBannerManager: React.FC<AdminOfferBannerManagerProps> = (
           </span>
         </div>
 
-        {/* The Live Rendered Card */}
-        <div className="p-5 sm:p-7 rounded-2xl bg-gradient-to-r from-[#170e01] via-[#2f1b03] to-[#170e01] border-2 border-[#d4a762]/60 text-white relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                <Flame className="w-3.5 h-3.5" />
-                <span>{badgeText || '🔥 বিশেষ অফার'}</span>
-              </span>
-
-              {expiry && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-stone-300 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full">
-                  <Calendar className="w-3 h-3 text-[#fdbf5e]" />
-                  <span>{expiry}</span>
+        {/* The Live Rendered Banner Preview (No-Background by default, or Gradient Card) */}
+        {isNoBg ? (
+          <div className="p-5 sm:p-7 rounded-2xl bg-[#faf9f4] border border-amber-900/15 text-[#2c1d07] relative overflow-hidden shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5 font-sans">
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase px-3 py-1 rounded-full bg-[#d4a762]/15 text-[#8f6320] border border-[#d4a762]/35">
+                  <Flame className="w-3.5 h-3.5 text-[#b07e35]" />
+                  <span>{badgeText || '🔥 বিশেষ অফার'}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                 </span>
-              )}
 
-              {coupon && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-[#fdbf5e] font-mono font-bold bg-[#d4a762]/15 border border-[#d4a762]/30 px-2.5 py-0.5 rounded-full">
-                  <Tag className="w-3 h-3" />
-                  <span>কোড: {coupon}</span>
-                </span>
+                {expiry && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-stone-600 bg-stone-100 border border-stone-200 px-2.5 py-0.5 rounded-full font-semibold">
+                    <Calendar className="w-3 h-3 text-[#b07e35]" />
+                    <span>{expiry}</span>
+                  </span>
+                )}
+
+                {coupon && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#8f6320] font-mono font-bold bg-[#d4a762]/10 border border-[#d4a762]/30 px-2.5 py-0.5 rounded-full">
+                    <Tag className="w-3 h-3 text-[#b07e35]" />
+                    <span>কোড: {coupon}</span>
+                  </span>
+                )}
+              </div>
+
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-[#2c1d07] font-serif leading-tight">
+                {titleText || 'আপনার অফার বা বিজ্ঞাপনের শিরোনাম এখানে কোনো ব্যাকগ্রাউন্ড ছাড়াই সরাসরি প্রদর্শিত হবে'}
+              </h3>
+
+              {descText && (
+                <p className="text-xs sm:text-sm text-stone-700 leading-relaxed max-w-2xl font-medium font-sans">
+                  {descText}
+                </p>
               )}
             </div>
 
-            <h3 className="text-lg sm:text-2xl font-black text-white font-serif">
-              {titleText || 'আপনার বিজ্ঞাপনের শিরোনাম এখানে প্রদর্শিত হবে'}
-            </h3>
-
-            {descText && (
-              <p className="text-xs sm:text-sm text-stone-300 leading-relaxed max-w-2xl">
-                {descText}
-              </p>
+            {imageUrl && (
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-stone-200 shadow-sm shrink-0">
+                <img src={imageUrl} alt="Offer Visual" className="w-full h-full object-cover" />
+              </div>
             )}
-          </div>
 
-          {imageUrl && (
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-[#d4a762]/40 shadow-lg shrink-0">
-              <img src={imageUrl} alt="Offer Visual" className="w-full h-full object-cover" />
-            </div>
-          )}
-
-          <div className="shrink-0 w-full md:w-auto">
-            <div className="bg-gradient-to-r from-[#d4a762] via-[#fdbf5e] to-[#d4a762] text-stone-950 font-black px-6 py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm shadow-lg flex items-center justify-center gap-2">
-              <span>{btnText || 'অফার সম্পর্কে জানুন'}</span>
-              <ArrowRight className="w-4 h-4" />
+            <div className="shrink-0 w-full md:w-auto">
+              <div className="bg-gradient-to-r from-[#d4a762] via-[#e0b873] to-[#ad7d33] text-stone-950 font-black px-6 py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm shadow-md flex items-center justify-center gap-2">
+                <span>{btnText || 'অফার সম্পর্কে জানুন'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-5 sm:p-7 rounded-2xl bg-gradient-to-r from-[#170e01] via-[#2f1b03] to-[#170e01] border-2 border-[#d4a762]/60 text-white relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  <Flame className="w-3.5 h-3.5" />
+                  <span>{badgeText || '🔥 বিশেষ অফার'}</span>
+                </span>
+
+                {expiry && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-stone-300 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full">
+                    <Calendar className="w-3 h-3 text-[#fdbf5e]" />
+                    <span>{expiry}</span>
+                  </span>
+                )}
+
+                {coupon && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#fdbf5e] font-mono font-bold bg-[#d4a762]/15 border border-[#d4a762]/30 px-2.5 py-0.5 rounded-full">
+                    <Tag className="w-3 h-3" />
+                    <span>কোড: {coupon}</span>
+                  </span>
+                )}
+              </div>
+
+              <h3 className="text-lg sm:text-2xl font-black text-white font-serif">
+                {titleText || 'আপনার বিজ্ঞাপনের শিরোনাম এখানে প্রদর্শিত হবে'}
+              </h3>
+
+              {descText && (
+                <p className="text-xs sm:text-sm text-stone-300 leading-relaxed max-w-2xl">
+                  {descText}
+                </p>
+              )}
+            </div>
+
+            {imageUrl && (
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-[#d4a762]/40 shadow-lg shrink-0">
+                <img src={imageUrl} alt="Offer Visual" className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            <div className="shrink-0 w-full md:w-auto">
+              <div className="bg-gradient-to-r from-[#d4a762] via-[#fdbf5e] to-[#d4a762] text-stone-950 font-black px-6 py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm shadow-lg flex items-center justify-center gap-2">
+                <span>{btnText || 'অফার সম্পর্কে জানুন'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
 
