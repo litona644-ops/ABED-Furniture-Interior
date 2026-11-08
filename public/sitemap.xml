@@ -3,18 +3,53 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-  <!-- Homepage: Abed Furniture & Interior -->
+  <!-- 1. Homepage: Abed Furniture & Interior -->
   <url>
     <loc>https://abedfurniture.com/</loc>
-    <lastmod>2026-09-28</lastmod>
+    <lastmod>2026-10-16</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
-  <!-- Completed & Handover Projects Gallery -->
+  <!-- 2. Furniture Catalog & Collections -->
+  <url>
+    <loc>https://abedfurniture.com/furniture</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <!-- 3. Interior Design Services & Projects -->
+  <url>
+    <loc>https://abedfurniture.com/interior-design</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <!-- 4. Custom Furniture & Bespoke Woodcraft -->
+  <url>
+    <loc>https://abedfurniture.com/custom-furniture</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- 5. Handover Projects & Delivered Works Gallery -->
   <url>
     <loc>https://abedfurniture.com/handover-projects</loc>
-    <lastmod>2026-09-28</lastmod>
+    <lastmod>2026-10-16</lastmod>
     <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- 6. About Abed Furniture & Master Craftsman Liton Ali -->
+  <url>
+    <loc>https://abedfurniture.com/about</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- 7. Contact Us, Showroom Location & Inquiry -->
+  <url>
+    <loc>https://abedfurniture.com/contact</loc>
+    <lastmod>2026-10-16</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 </urlset>

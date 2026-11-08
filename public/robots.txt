@@ -1,10 +1,22 @@
 # Robots.txt for Abed Furniture & Interior
-# Allows crawling of all public pages, catalog, and handover galleries
+# Allows crawling of all public routes, catalog, and handover galleries
 User-agent: Googlebot
 Allow: /
+Allow: /furniture
+Allow: /interior-design
+Allow: /custom-furniture
+Allow: /handover-projects
+Allow: /about
+Allow: /contact
 
 User-agent: *
 Allow: /
+Allow: /furniture
+Allow: /interior-design
+Allow: /custom-furniture
+Allow: /handover-projects
+Allow: /about
+Allow: /contact
 Disallow: /admin
 Disallow: /api/
 

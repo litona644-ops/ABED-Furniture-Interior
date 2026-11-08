@@ -715,120 +715,591 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 </div>
               )}
 
-              {/* TAB 5: SITE INFO & BRANDING */}
+              {/* TAB 5: SITE INFO & BRANDING - Comprehensive Whole-Website Text Controls */}
               {activeTab === 'site_info' && (
-                <div className="space-y-6 max-w-4xl">
-                  <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+                <div className="space-y-6 max-w-5xl">
+                  {/* Top Bar with Title and Save Button */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
                     <div>
-                      <h3 className="text-xl font-bold text-white font-serif flex items-center gap-2">
-                        <Settings className="w-5 h-5 text-[#d4a762]" />
-                        <span>কোম্পানি ব্র্যান্ডিং ও কনটেন্ট এডিটর</span>
+                      <h3 className="text-xl sm:text-2xl font-bold text-white font-serif flex items-center gap-2.5">
+                        <Settings className="w-6 h-6 text-[#d4a762]" />
+                        <span>ওয়েবসাইটের সকল টেক্সট ও ব্র্যান্ডিং এডিটর</span>
                       </h3>
                       <p className="text-xs text-stone-400 mt-1">
-                        হোমপেজের ব্যানার, ঠিকানা, ফোন নম্বর ও ডিজাইনার লিটন আলীর তথ্য পরিবর্তন করুন।
+                        ওয়েবসাইটের প্রতিটি পেজ, হিরো ব্যানার, কারিগরের বায়ো, প্রোডাক্ট হেডিং, শোরুম তথ্য ও ফুটারের যেকোনো টেক্সট এখান থেকে পরিবর্তন করুন।
                       </p>
                     </div>
 
                     <button
                       type="button"
                       onClick={onSaveSiteSettings}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4a762] to-[#ad7d33] text-black font-black text-xs uppercase tracking-wider shadow-lg hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                      className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#d4a762] via-[#e5bb77] to-[#ad7d33] text-black font-black text-xs uppercase tracking-wider shadow-lg hover:brightness-110 active:scale-95 transition-all cursor-pointer shrink-0"
                     >
                       <Save className="w-4 h-4" />
-                      <span>সেভ করুন</span>
+                      <span>পরিবর্তন সেভ করুন</span>
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 block mb-1">Brand Name Left</label>
-                      <input
-                        type="text"
-                        value={siteSettings.brandNameLeft || ''}
-                        onChange={(e) => setSiteSettings({ ...siteSettings, brandNameLeft: e.target.value })}
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
-                      />
+                  {/* Group 1: মূল ব্র্যান্ডিং ও যোগাযোগ (Branding & Contact Info) */}
+                  <div className="bg-stone-900/60 p-5 sm:p-6 rounded-2xl border border-stone-800 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-stone-800 pb-3">
+                      <span className="text-xs font-black text-[#fdbf5e] uppercase tracking-wider font-mono">
+                        ১. মূল ব্র্যান্ডিং, শোরুম ও যোগাযোগ নম্বর (Branding & Hotline)
+                      </span>
                     </div>
 
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 block mb-1">Brand Name Right</label>
-                      <input
-                        type="text"
-                        value={siteSettings.brandNameRight || ''}
-                        onChange={(e) => setSiteSettings({ ...siteSettings, brandNameRight: e.target.value })}
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">ব্র্যান্ড নাম (বাম অংশ)</label>
+                        <input
+                          type="text"
+                          value={siteSettings.brandNameLeft || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, brandNameLeft: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="Abed / আবেদ"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">ব্র্যান্ড নাম (ডান অংশ)</label>
+                        <input
+                          type="text"
+                          value={siteSettings.brandNameRight || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, brandNameRight: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="Furniture & Interior"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">স্লোগান / ট্যাগলাইন</label>
+                        <input
+                          type="text"
+                          value={siteSettings.tagline || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, tagline: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="আপনার রুচি, আমাদের সৃষ্টি"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হটলাইন ১ (WhatsApp নম্বর)</label>
+                        <input
+                          type="text"
+                          value={siteSettings.phone1 || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, phone1: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="০১৮১৬-২৩৪১৫৭"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হটলাইন ২ (সরাসরি কল নম্বর)</label>
+                        <input
+                          type="text"
+                          value={siteSettings.phone2 || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, phone2: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="০১৯১২-৩৪৫৬৭৮"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">অফিসিয়াল ইমেইল</label>
+                        <input
+                          type="email"
+                          value={siteSettings.showroomEmail || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, showroomEmail: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="litona644@gmail.com"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-bold text-stone-400 block mb-1">শোরুমের পূর্ণ ঠিকানা</label>
+                        <input
+                          type="text"
+                          value={siteSettings.showroomAddress || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, showroomAddress: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="গেন্ডারিয়া, ধূপখোলা মাঠ সংলগ্ন, ঢাকা, বাংলাদেশ"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">শোরুম খোলা ও বন্ধের সময়</label>
+                        <input
+                          type="text"
+                          value={siteSettings.showroomHours || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, showroomHours: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="শনি - বৃহস্পতি: সকাল ১০:০০ - রাত ৯:০০ (শুক্রবার বিকেল ৩টা থেকে)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group 2: হোমপেজ হিরো ব্যানার (Homepage Hero Showcase) */}
+                  <div className="bg-stone-900/60 p-5 sm:p-6 rounded-2xl border border-stone-800 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-stone-800 pb-3">
+                      <span className="text-xs font-black text-[#fdbf5e] uppercase tracking-wider font-mono">
+                        ২. হোমপেজ হিরো ব্যানার ও বাটন টেক্সট (Homepage Hero & Action Buttons)
+                      </span>
                     </div>
 
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 block mb-1">Tagline</label>
-                      <input
-                        type="text"
-                        value={siteSettings.tagline || ''}
-                        onChange={(e) => setSiteSettings({ ...siteSettings, tagline: e.target.value })}
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হিরো টপ ব্যাজ টেক্সট</label>
+                        <input
+                          type="text"
+                          value={siteSettings.heroBadge || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, heroBadge: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="100% TRUSTED WEBSITE"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হিরো টাইটেল (১ম লাইন বাংলায়)</label>
+                        <input
+                          type="text"
+                          value={siteSettings.heroTitleBn1 || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, heroTitleBn1: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="আপনার স্বপ্নের ঘর,"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হিরো টাইটেল (২য় লাইন বাংলায়)</label>
+                        <input
+                          type="text"
+                          value={siteSettings.heroTitleBn2 || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, heroTitleBn2: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="আমাদের শিল্পের ছোঁয়া"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">WhatsApp বাটন লেখা</label>
+                        <input
+                          type="text"
+                          value={siteSettings.heroBtnWhatsapp || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, heroBtnWhatsapp: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="WhatsApp-এ সরাসরি কথা বলুন"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হিরো ব্যানার বিস্তারিত বিবরণ</label>
+                        <textarea
+                          rows={3}
+                          value={siteSettings.heroDescBn || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, heroDescBn: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="আপনার নতুন ফ্ল্যাট বা অফিসকে দিতে রাজকীয় রূপ..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group 3: প্রোডাক্টস সেকশন টেক্সট (Products Section) */}
+                  <div className="bg-stone-900/60 p-5 sm:p-6 rounded-2xl border border-stone-800 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-stone-800 pb-3">
+                      <span className="text-xs font-black text-[#fdbf5e] uppercase tracking-wider font-mono">
+                        ৩. প্রোডাক্টস ক্যাটালগ সেকশন হেডলাইন (Products Section Titles)
+                      </span>
                     </div>
 
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 block mb-1">Hero Badge</label>
-                      <input
-                        type="text"
-                        value={siteSettings.heroBadge || ''}
-                        onChange={(e) => setSiteSettings({ ...siteSettings, heroBadge: e.target.value })}
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">সেকশন টপ ব্যাজ</label>
+                        <input
+                          type="text"
+                          value={siteSettings.productsSectionBadge || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, productsSectionBadge: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="EXCLUSIVE WOODCRAFT"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">সেকশন মূল শিরোনাম</label>
+                        <input
+                          type="text"
+                          value={siteSettings.productsSectionTitle || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, productsSectionTitle: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="আমাদের জনপ্রিয় আসবাব ও ইন্টেরিয়র প্যাকেজ"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">সেকশন সাবটাইটেল</label>
+                        <input
+                          type="text"
+                          value={siteSettings.productsSectionSubtitle || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, productsSectionSubtitle: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="চিটাগাং সেগুন কাঠের তৈরি রাজকীয় খাট..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group 4: প্রধান কারিগর ও নকশাবিদ লিটন আলী (Chief Designer Bio) */}
+                  <div className="bg-stone-900/60 p-5 sm:p-6 rounded-2xl border border-stone-800 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-stone-800 pb-3">
+                      <span className="text-xs font-black text-[#fdbf5e] uppercase tracking-wider font-mono">
+                        ৪. প্রধান কারিগর ও নকশাবিদ লিটন আলী সাহেবের বায়ো (Chief Designer Bio)
+                      </span>
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="text-xs font-bold text-stone-400 block mb-1">Hero Title (Line 1)</label>
-                      <input
-                        type="text"
-                        value={siteSettings.heroTitleBn1 || ''}
-                        onChange={(e) => setSiteSettings({ ...siteSettings, heroTitleBn1: e.target.value })}
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">নকশাবিদের নাম</label>
+                        <input
+                          type="text"
+                          value={siteSettings.designerName || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, designerName: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="Liton Ali"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">নকশাবিদের পদবি</label>
+                        <input
+                          type="text"
+                          value={siteSettings.designerTitle || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, designerTitle: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="CHIEF DESIGN CONSULTANT & CRAFTS LEAD"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-bold text-stone-400 block mb-1">অভিজ্ঞতা ও পরিচয় ১ (Bio Paragraph 1)</label>
+                        <textarea
+                          rows={2}
+                          value={siteSettings.designerDesc1 || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, designerDesc1: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-bold text-stone-400 block mb-1">অভিজ্ঞতা ও পরিচয় ২ (Bio Paragraph 2)</label>
+                        <textarea
+                          rows={2}
+                          value={siteSettings.designerDesc2 || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, designerDesc2: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">অভিজ্ঞতার টেক্সট বাংলা</label>
+                        <input
+                          type="text"
+                          value={siteSettings.designerExpText || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, designerExpText: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="১৫+ বছরের অভিজ্ঞতা"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">দুবাই আরব টেক অভিজ্ঞতা টেক্সট</label>
+                        <input
+                          type="text"
+                          value={siteSettings.designerDubaiText || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, designerDubaiText: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                          placeholder="৮ বছর আরব টেক (UAE)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group 5: হ্যান্ডওভার প্রজেক্ট টেক্সট (Handover Projects) */}
+                  <div className="bg-stone-900/60 p-5 sm:p-6 rounded-2xl border border-stone-800 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-stone-800 pb-3">
+                      <span className="text-xs font-black text-[#fdbf5e] uppercase tracking-wider font-mono">
+                        ৫. হ্যান্ডওভার প্রজেক্ট সেকশন ও পেজের শিরোনাম (Handover Texts)
+                      </span>
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="text-xs font-bold text-stone-400 block mb-1">Hero Description</label>
-                      <textarea
-                        rows={3}
-                        value={siteSettings.heroDescBn || ''}
-                        onChange={(e) => setSiteSettings({ ...siteSettings, heroDescBn: e.target.value })}
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হোমপেজ হ্যান্ডওভার সেকশন ব্যাজ</label>
+                        <input
+                          type="text"
+                          value={siteSettings.handoverBadge || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, handoverBadge: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">বাটন পিসের ভেতরের লেখা</label>
+                        <input
+                          type="text"
+                          value={siteSettings.handoverButtonLabel || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, handoverButtonLabel: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হোমপেজ সেকশন মূল শিরোনাম</label>
+                        <input
+                          type="text"
+                          value={siteSettings.handoverTitle || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, handoverTitle: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হোমপেজ সেকশন সাবটাইটেল</label>
+                        <input
+                          type="text"
+                          value={siteSettings.handoverSubtitle || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, handoverSubtitle: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হ্যান্ডওভার পেজের শিরোনাম</label>
+                        <input
+                          type="text"
+                          value={siteSettings.handoverPageTitle || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, handoverPageTitle: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">হ্যান্ডওভার পেজের ভূমিকা বিবরণ</label>
+                        <input
+                          type="text"
+                          value={siteSettings.handoverPageDesc || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, handoverPageDesc: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#d4a762] focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group 6: সেপারেট পেজ টেক্সটসমূহ (Multi-Page Headers) */}
+                  <div className="bg-stone-900/60 p-5 sm:p-6 rounded-2xl border border-stone-800 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-stone-800 pb-3">
+                      <span className="text-xs font-black text-[#fdbf5e] uppercase tracking-wider font-mono">
+                        ৬. অন্যান্য পেজের শিরোনাম ও সাবটাইটেল (Dedicated Pages Headings)
+                      </span>
                     </div>
 
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 block mb-1">ফোন নম্বর ১ (WhatsApp)</label>
-                      <input
-                        type="text"
-                        value={siteSettings.phone1 || ''}
-                        onChange={(e) => setSiteSettings({ ...siteSettings, phone1: e.target.value })}
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
-                      />
+                    <div className="space-y-4">
+                      {/* Furniture Page */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-black/40 rounded-xl border border-stone-800/80">
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">ফার্নিচার পেজ (/furniture) শিরোনাম</label>
+                          <input
+                            type="text"
+                            value={siteSettings.furniturePageTitle || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, furniturePageTitle: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">ফার্নিচার পেজ সাবটাইটেল</label>
+                          <input
+                            type="text"
+                            value={siteSettings.furniturePageSubtitle || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, furniturePageSubtitle: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Interior Page */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-black/40 rounded-xl border border-stone-800/80">
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">ইন্টেরিয়র পেজ (/interior-design) শিরোনাম</label>
+                          <input
+                            type="text"
+                            value={siteSettings.interiorPageTitle || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, interiorPageTitle: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">ইন্টেরিয়র পেজ সাবটাইটেল</label>
+                          <input
+                            type="text"
+                            value={siteSettings.interiorPageSubtitle || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, interiorPageSubtitle: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Custom Furniture Page */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-black/40 rounded-xl border border-stone-800/80">
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">কাস্টম ফার্নিচার (/custom-furniture) শিরোনাম</label>
+                          <input
+                            type="text"
+                            value={siteSettings.customPageTitle || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, customPageTitle: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">কাস্টম ফার্নিচার সাবটাইটেল</label>
+                          <input
+                            type="text"
+                            value={siteSettings.customPageSubtitle || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, customPageSubtitle: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* About Page */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-black/40 rounded-xl border border-stone-800/80">
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">পরিচিতি পেজ (/about) শিরোনাম</label>
+                          <input
+                            type="text"
+                            value={siteSettings.aboutPageTitle || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, aboutPageTitle: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">পরিচিতি পেজ সাবটাইটেল</label>
+                          <input
+                            type="text"
+                            value={siteSettings.aboutPageSubtitle || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, aboutPageSubtitle: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Contact Page */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-black/40 rounded-xl border border-stone-800/80">
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">যোগাযোগ পেজ (/contact) শিরোনাম</label>
+                          <input
+                            type="text"
+                            value={siteSettings.contactPageTitle || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, contactPageTitle: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-stone-400 block mb-1">যোগাযোগ পেজ সাবটাইটেল</label>
+                          <input
+                            type="text"
+                            value={siteSettings.contactPageSubtitle || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, contactPageSubtitle: e.target.value })}
+                            className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group 7: ফুটার ও কপিরাইট টেক্সট (Footer & Copyright) */}
+                  <div className="bg-stone-900/60 p-5 sm:p-6 rounded-2xl border border-stone-800 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-stone-800 pb-3">
+                      <span className="text-xs font-black text-[#fdbf5e] uppercase tracking-wider font-mono">
+                        ৭. ফুটার টেক্সট ও কপিরাইট (Footer Content & Copyright)
+                      </span>
                     </div>
 
-                    <div>
-                      <label className="text-xs font-bold text-stone-400 block mb-1">ফোন নম্বর ২</label>
-                      <input
-                        type="text"
-                        value={siteSettings.phone2 || ''}
-                        onChange={(e) => setSiteSettings({ ...siteSettings, phone2: e.target.value })}
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-bold text-stone-400 block mb-1">ফুটার পরিচিতি সংক্ষিপ্ত বিবরণ</label>
+                        <textarea
+                          rows={2}
+                          value={siteSettings.footerAboutText || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, footerAboutText: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                          placeholder="আবেদ ফার্ণিচার ও ইন্টেরিয়র ২০১০ সাল থেকে ঢাকায়..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-stone-400 block mb-1">কপিরাইট নোটিশ</label>
+                        <input
+                          type="text"
+                          value={siteSettings.footerCopyrightText || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, footerCopyrightText: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
+                          placeholder="সর্বস্বত্ব সংরক্ষিত।"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Group 8: এসইও ও সোশ্যাল শেয়ারিং মেটাডাটা (SEO & Meta Tags) */}
+                  <div className="bg-stone-900/60 p-5 sm:p-6 rounded-2xl border border-stone-800 space-y-4">
+                    <div className="flex items-center gap-2 border-b border-stone-800 pb-3">
+                      <span className="text-xs font-black text-[#fdbf5e] uppercase tracking-wider font-mono">
+                        ৮. সার্চ ইঞ্জিন অপ্টিমাইজেশন (SEO Title & Meta Tags)
+                      </span>
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="text-xs font-bold text-stone-400 block mb-1">শোরুমের পূর্ণ ঠিকানা</label>
-                      <input
-                        type="text"
-                        value={siteSettings.showroomAddress || ''}
-                        onChange={(e) => setSiteSettings({ ...siteSettings, showroomAddress: e.target.value })}
-                        className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-bold text-stone-400 block mb-1">গুগল সার্চ ও ব্রাউজার পেজ টাইটেল (SEO Title)</label>
+                        <input
+                          type="text"
+                          value={siteSettings.seoTitle || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, seoTitle: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-bold text-stone-400 block mb-1">মেটা ডেসক্রিপশন (Meta Description for Search & Socials)</label>
+                        <textarea
+                          rows={2}
+                          value={siteSettings.metaDescription || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, metaDescription: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-bold text-stone-400 block mb-1">সার্চ কি-ওয়ার্ডস (SEO Keywords - Comma Separated)</label>
+                        <input
+                          type="text"
+                          value={siteSettings.seoKeywords || ''}
+                          onChange={(e) => setSiteSettings({ ...siteSettings, seoKeywords: e.target.value })}
+                          className="w-full bg-black border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
+                        />
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Bottom Save Button */}
+                  <div className="pt-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={onSaveSiteSettings}
+                      className="flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#d4a762] via-[#e5bb77] to-[#ad7d33] text-black font-black text-xs uppercase tracking-wider shadow-lg hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>সকল পরিবর্তন সেভ করুন</span>
+                    </button>
                   </div>
                 </div>
               )}

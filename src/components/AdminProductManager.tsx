@@ -24,6 +24,12 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Category } from '../types';
 import { uploadProductImage, ensureAuthSession } from '../lib/firebase';
+import { 
+  getProductMainImage, 
+  getProductGalleryImages, 
+  handleProductImageError, 
+  DEFAULT_PRODUCT_FALLBACK_IMAGE 
+} from '../lib/productImage';
 
 interface AdminProductManagerProps {
   products: Product[];
@@ -243,8 +249,13 @@ export default function AdminProductManager({
     setNameEn(prod.nameEn || '');
     setNameBn(prod.nameBn || '');
     setCategory(prod.category || 'furniture');
-    setPrimaryImgUrl(prod.imgUrl || '');
-    setGalleryImages(prod.images && prod.images.length > 0 ? prod.images : prod.imgUrl ? [prod.imgUrl] : []);
+    
+    // Resolve authentic primary and gallery images from any schema variation
+    const resolvedMain = getProductMainImage(prod);
+    const resolvedGallery = getProductGalleryImages(prod);
+    setPrimaryImgUrl(resolvedMain);
+    setGalleryImages(resolvedGallery);
+
     setPriceRangeEn(prod.priceRangeEn || '');
     setPriceRangeBn(prod.priceRangeBn || '');
     setMinPrice(prod.minPrice ? prod.minPrice.toString() : '15000');
@@ -300,7 +311,13 @@ export default function AdminProductManager({
     }
 
     const minPriceNum = parseInt(minPrice, 10) || 0;
-    const finalImg = primaryImgUrl.trim() || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80';
+
+    // Preserve existing image if user edited descriptions without re-uploading
+    const existingProd = editingProdId ? products.find((p) => p.id === editingProdId) : null;
+    const existingImg = existingProd ? getProductMainImage(existingProd) : '';
+    const existingGallery = existingProd ? getProductGalleryImages(existingProd) : [];
+
+    const finalImg = primaryImgUrl.trim() || existingImg || DEFAULT_PRODUCT_FALLBACK_IMAGE;
 
     // Parse specifications
     const parsedSpecsBn = specsBn.trim()
@@ -317,7 +334,7 @@ export default function AdminProductManager({
 
     const allImages = galleryImages.length > 0 
       ? (galleryImages.includes(finalImg) ? galleryImages : [finalImg, ...galleryImages])
-      : [finalImg];
+      : (existingGallery.length > 0 ? existingGallery : [finalImg]);
 
     setIsSaving(true);
     try {
@@ -1033,8 +1050,9 @@ export default function AdminProductManager({
                   <div className="flex gap-3.5 items-start">
                     <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-stone-200">
                       <img
-                        src={prod.imgUrl}
+                        src={getProductMainImage(prod)}
                         alt={prod.nameEn}
+                        onError={(e) => handleProductImageError(e)}
                         className="w-full h-full object-cover"
                         referrerPolicy="no-referrer"
                       />
@@ -1152,8 +1170,9 @@ export default function AdminProductManager({
               {/* Product mini preview card */}
               <div className="mt-4 p-3.5 bg-stone-50 rounded-2xl border border-stone-200 flex items-center gap-3">
                 <img
-                  src={productToDelete.imgUrl}
+                  src={getProductMainImage(productToDelete)}
                   alt={productToDelete.nameEn}
+                  onError={(e) => handleProductImageError(e)}
                   className="w-14 h-14 rounded-xl object-cover border border-stone-200"
                   referrerPolicy="no-referrer"
                 />

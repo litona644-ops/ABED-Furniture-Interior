@@ -57,9 +57,23 @@ import { MaintenancePage } from './components/MaintenancePage';
 import { AdminDashboardPage } from './components/AdminDashboardPage';
 import { HomepageOfferBanner } from './components/HomepageOfferBanner';
 import { HomepageNoticeBox } from './components/HomepageNoticeBox';
+import { SiteHeader, RouteKey } from './components/SiteHeader';
+import { SiteFooter } from './components/SiteFooter';
+import { FurniturePage } from './pages/FurniturePage';
+import { InteriorDesignPage } from './pages/InteriorDesignPage';
+import { CustomFurniturePage } from './pages/CustomFurniturePage';
+import { AboutPage } from './pages/AboutPage';
+import { ContactPage } from './pages/ContactPage';
+import { ProductDetailsPage } from './pages/ProductDetailsPage';
 import { loadThemeColors, applyThemeColors, DEFAULT_THEME_COLORS } from './lib/themeManager';
 import { recordPageView } from './lib/analytics';
 import { registerAdminSession, terminateAdminSession } from './lib/adminSessions';
+import { 
+  getProductMainImage, 
+  getProductGalleryImages, 
+  handleProductImageError, 
+  DEFAULT_PRODUCT_FALLBACK_IMAGE 
+} from './lib/productImage';
 import { 
   supabase, 
   isSupabaseConfigured,
@@ -99,17 +113,23 @@ const DEFAULT_SETTINGS = {
   heroTitleBn1: 'আপনার স্বপ্নের ঘর,',
   heroTitleBn2: 'আমাদের শিল্পের ছোঁয়া',
   heroDescBn: 'আপনার নতুন ফ্ল্যাট বা অফিসকে দিতে রাজকীয় রূপ, দুবাইয়ের স্বনামধন্য আরব টেক প্রতিষ্ঠানের দীর্ঘ অভিজ্ঞতাপ্রাপ্ত প্রধান নকশাবিদ লিটন আলী সাহেবের চমৎকার পরিকল্পনায় আবেদ ফার্ণিচার এবং ইন্টেরিয়র রয়েছে আপনার সেবায়।',
+  heroBtnWhatsapp: 'WhatsApp-এ সরাসরি কথা বলুন',
+  heroBtnCollection: 'কালেকশন দেখুন',
   showroomAddress: 'গেন্ডারিয়া, ধূপখোলা মাঠ সংলগ্ন, ঢাকা, বাংলাদেশ',
   showroomHours: 'শনি - বৃহস্পতি: সকাল ১০:০০ - রাত ৯:০০ (শুক্রবার বিকেল ৩টা থেকে খোলা)',
+  showroomEmail: 'litona644@gmail.com',
   phone1: '০১৮১৬-২৩৪১৫৭ (WhatsApp উপলব্ধ)',
   phone2: '০১৯১২-৩৪৫৬৭৮',
-  phone3: '০১৭১০-১২৩৪৫৬',
   designerName: 'Liton Ali',
   designerTitle: 'CHIEF DESIGN CONSULTANT & CRAFTS LEAD',
   designerDesc1: 'Liton Ali is a premier woodwork specialist and design consultant with over 15 years of golden industry excellence. He spent 8 years in the United Arab Emirates as an elite project coordinator for "Arab Tech"—one of Dubai\'s premier luxury interior contracting companies.',
   designerDesc2: 'He specializes in designing customized solid wood structures, custom modular space-saving wardrobes, royal carvings, and premium residential spaces tailored with absolute mathematical precision to match your blueprints.',
   designerExpText: '১৫+ বছরের অভিজ্ঞতা',
   designerDubaiText: '৮ বছর আরব টেক (UAE)',
+  // Products Section Texts
+  productsSectionBadge: 'EXCLUSIVE WOODCRAFT',
+  productsSectionTitle: 'আমাদের জনপ্রিয় আসবাব ও ইন্টেরিয়র প্যাকেজ',
+  productsSectionSubtitle: 'চিটাগাং সেগুন কাঠের তৈরি রাজকীয় খাট, ডাইনিং ও লিভিং আসবাবপত্র',
   // Handover Projects Upper Text & Titles
   handoverBadge: 'বাস্তবায়িত কাজের সংগ্রহশালা (Delivered Works)',
   handoverTitle: 'আমাদের ক্লায়েন্টদের সফলভাবে সম্পন্ন ও হস্তান্তরিত প্রজেক্ট',
@@ -118,6 +138,25 @@ const DEFAULT_SETTINGS = {
   handoverPageBadge: 'Delivered Work & Customer Handovers',
   handoverPageTitle: 'Our Handover Projects',
   handoverPageDesc: 'আমাদের সম্মানিত গ্রাহকদের সফলভাবে বুঝিয়ে দেওয়া প্রিমিয়াম আসবাবপত্র ও এক্সক্লুসিভ হোম ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম।',
+  // Dedicated Multi-Page Headings
+  furniturePageTitle: 'চিটাগাং সেগুন ও মেহগনি কাঠের আসবাবপত্র সম্ভার',
+  furniturePageSubtitle: 'দক্ষ কারিগরের হাতে খোদাই করা রাজকীয় খাট, সোফা সেট, ডাইনিং টেবিল, আলমারি ও ড্রেসিং টেবিল। ১০০% সিজনড খাঁটি কাঠ, মসৃণ ডলফিন গ্লসি ল্যাকার ফিনিশ এবং আজীবন ঘুণের গ্যারান্টি।',
+  furniturePageBadge: '100% Solid Seasoned Timber Collection',
+  interiorPageTitle: 'আধুনিক ও রাজকীয় হোম ইন্টেরিয়র ডিজাইন সার্ভিস',
+  interiorPageSubtitle: 'ডুপ্লেক্স হোম, ড্রয়িংরুম ওয়াল প্যানেলিং, মডুলার কিচেন ক্যাবিনেট ও মাস্টার বেডরুমের প্রিমিয়াম ইন্টেরিয়র সল্যুশন। চিফ ডিজাইনার লিটন আলীর ১৫+ বছরের আন্তর্জাতিক ও দেশীয় অভিজ্ঞতা (দুবাই আরব টেক ৮ বছর)।',
+  interiorPageBadge: 'Turnkey Architectural Interior Solutions',
+  customPageTitle: 'আপনার পছন্দসই ডিজাইন ও পরিমাপে কাস্টম ফার্নিচার তৈরি',
+  customPageSubtitle: 'আমাদের কাছে রয়েছে নিজস্ব স-মিল ও আধুনিক ড্রায়ার সুবিধা। আপনার ঘরের আর্কিটেকচারাল ড্রয়িং, ক্যাটালগের ছবি বা নির্দিষ্ট পরিমাপ অনুযায়ী তৈরি করা হয় খাঁটি কাঠে।',
+  customPageBadge: 'Bespoke Architectural Woodworking',
+  aboutPageTitle: 'আমাদের ঐতিহ্য ও নিবেদিত কাষ্ঠশিল্পের গল্প',
+  aboutPageSubtitle: '১৫ বছরের বেশি সময় ধরে বিশ্বস্ততার সাথে সেরা মানের কাঠ ও কারুকাজের বিশ্বস্ত প্রতিষ্ঠান। চিফ ডিজাইনার লিটন আলীর নেতৃত্বে একঝাঁক দক্ষ কারিগর।',
+  aboutPageBadge: 'Master Woodcraft & 15+ Years Heritage',
+  contactPageTitle: 'শোরুম পরিদর্শন ও সরাসরি যোগাযোগ',
+  contactPageSubtitle: 'আবেদ ফার্ণিচার ও ইন্টেরিয়র শোরুমে আপনাকে স্বাগতম। সরাসরি এসে মেহগনি ও সেগুন কাঠের গুণগত মান পরখ করুন অথবা যেকোনো তথ্যে যোগাযোগ করুন।',
+  contactPageBadge: 'Showroom Location & Direct Enquiries',
+  // Footer Texts
+  footerAboutText: 'আবেদ ফার্ণিচার ও ইন্টেরিয়র ২০১০ সাল থেকে ঢাকায় খাঁটি চিটাগাং সেগুন ও যশোর মেহগনি কাঠের তৈরি প্রিমিয়াম আসবাবপত্র এবং আধুনিক হোম ও অফিস ইন্টেরিয়র ডিজাইনের বিশ্বস্ত প্রতিষ্ঠান। আমাদের প্রধান কারিগর লিটন আলীর ১৫+ বছরের বাস্তব অভিজ্ঞতা।',
+  footerCopyrightText: 'সর্বস্বত্ব সংরক্ষিত।',
   // SEO, Open Graph & Structured Data Settings
   seoTitle: 'আবেদ ফার্ণিচার ও ইন্টেরিয়র | Abed Furniture & Interior Design Dhaka',
   metaDescription: 'প্রিমিয়াম মেহগনি ও সেগুন কাঠের ফার্ণিচার এবং আধুনিক হোম ইন্টেরিয়র ডিজাইন সার্ভিস। গেন্ডারিয়া, ঢাকা।',
@@ -183,12 +222,23 @@ export default function App() {
     const saved = localStorage.getItem('abed_products');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((p) => ({
+            ...p,
+            imgUrl: getProductMainImage(p),
+            images: getProductGalleryImages(p)
+          }));
+        }
       } catch (e) {
         console.error('Error parsing abed_products from localStorage:', e);
       }
     }
-    return PRODUCTS;
+    return PRODUCTS.map((p) => ({
+      ...p,
+      imgUrl: getProductMainImage(p),
+      images: getProductGalleryImages(p)
+    }));
   });
 
   // Dynamic Site Settings - Synced with Firestore
@@ -226,41 +276,96 @@ export default function App() {
     return DEFAULT_COMPLETED_PROJECTS;
   });
 
-  // Dedicated routing view state: 'home' | 'handover-projects' | 'admin'
-  const [currentView, setCurrentView] = useState<'home' | 'handover-projects' | 'admin'>(() => {
+  // Dedicated routing view state: 'home' | 'furniture' | 'interior-design' | 'custom-furniture' | 'handover-projects' | 'about' | 'contact' | 'admin' | 'product'
+  const [currentView, setCurrentView] = useState<RouteKey>(() => {
     if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      const hash = window.location.hash;
-      if (path === '/admin' || hash === '#admin') {
-        return 'admin';
-      }
-      if (path === '/handover-projects' || hash === '#handover-projects') {
-        return 'handover-projects';
-      }
+      const path = window.location.pathname.replace(/\/+$/, '') || '/';
+      const hash = window.location.hash.replace(/^#/, '');
+      if (path === '/admin' || hash === 'admin') return 'admin';
+      if (path === '/handover-projects' || hash === 'handover-projects') return 'handover-projects';
+      if (path === '/furniture' || hash === 'furniture') return 'furniture';
+      if (path === '/interior-design' || hash === 'interior-design') return 'interior-design';
+      if (path === '/custom-furniture' || hash === 'custom-furniture') return 'custom-furniture';
+      if (path === '/about' || hash === 'about') return 'about';
+      if (path === '/contact' || hash === 'contact') return 'contact';
+      if (path === '/product' || path.startsWith('/product/')) return 'product';
     }
     return 'home';
   });
 
-  const navigateTo = (view: 'home' | 'handover-projects' | 'admin') => {
+  const [previousView, setPreviousView] = useState<RouteKey>('furniture');
+
+  const navigateTo = (view: RouteKey) => {
     setCurrentView(view);
-    if (view === 'admin') {
-      window.history.pushState({ view: 'admin' }, '', '/admin');
-    } else if (view === 'handover-projects') {
-      window.history.pushState({ view: 'handover-projects' }, '', '/handover-projects');
-    } else {
-      window.history.pushState({ view: 'home' }, '', '/');
+    const path = view === 'home' ? '/' : `/${view}`;
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ view }, '', path);
+      window.scrollTo({ top: 0, behavior: 'instant' });
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSelectProduct = (product: Product) => {
+    if (currentView !== 'product') {
+      setPreviousView(currentView);
+    }
+    setSelectedProduct(product);
+    setCurrentView('product');
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ view: 'product', productId: product.id }, '', `/product?id=${product.id}`);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  };
+
+  const handleExitProduct = () => {
+    const fallback = selectedProduct?.category === 'interior' ? 'interior-design' : 'furniture';
+    const target = (previousView && previousView !== 'product') ? previousView : fallback;
+    setSelectedProduct(null);
+    navigateTo(target);
   };
 
   useEffect(() => {
-    const handlePopState = () => {
-      const path = window.location.pathname;
-      const hash = window.location.hash;
-      if (path === '/admin' || hash === '#admin') {
+    // Initial load check for /product with id
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.replace(/\/+$/, '') || '/';
+      const searchParams = new URLSearchParams(window.location.search);
+      const prodId = searchParams.get('id') || (path.startsWith('/product/') ? path.replace('/product/', '') : null);
+      if (prodId) {
+        const found = products.find(p => p.id === prodId);
+        if (found) {
+          setSelectedProduct(found);
+          setCurrentView('product');
+        }
+      }
+    }
+  }, [products]);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const path = window.location.pathname.replace(/\/+$/, '') || '/';
+      const hash = window.location.hash.replace(/^#/, '');
+      const searchParams = new URLSearchParams(window.location.search);
+      const prodId = searchParams.get('id') || (event.state && event.state.productId);
+
+      if (path === '/admin' || hash === 'admin') {
         setCurrentView('admin');
-      } else if (path === '/handover-projects' || hash === '#handover-projects') {
+      } else if (path === '/handover-projects' || hash === 'handover-projects') {
         setCurrentView('handover-projects');
+      } else if (path === '/furniture' || hash === 'furniture') {
+        setCurrentView('furniture');
+      } else if (path === '/interior-design' || hash === 'interior-design') {
+        setCurrentView('interior-design');
+      } else if (path === '/custom-furniture' || hash === 'custom-furniture') {
+        setCurrentView('custom-furniture');
+      } else if (path === '/about' || hash === 'about') {
+        setCurrentView('about');
+      } else if (path === '/contact' || hash === 'contact') {
+        setCurrentView('contact');
+      } else if (path === '/product' || prodId) {
+        if (prodId) {
+          const found = products.find(p => p.id === prodId);
+          if (found) setSelectedProduct(found);
+        }
+        setCurrentView('product');
       } else {
         setCurrentView('home');
       }
@@ -268,7 +373,7 @@ export default function App() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [products]);
 
   // Persistent Maintenance Mode State
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => {
@@ -289,7 +394,7 @@ export default function App() {
   // Automated Secure Visitor Analytics Tracking for Public Pages
   useEffect(() => {
     if (currentView !== 'admin' && !isMaintenanceMode) {
-      const pagePath = currentView === 'handover-projects' ? '/handover-projects' : '/';
+      const pagePath = currentView === 'home' ? '/' : `/${currentView}`;
       recordPageView(pagePath, document.referrer);
     }
   }, [currentView, isMaintenanceMode]);
@@ -352,6 +457,26 @@ export default function App() {
       pageTitle = `${siteSettings.handoverPageTitle || 'Our Handover Projects'} – ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Furniture & Interior'}`;
       pageDesc = siteSettings.handoverPageDesc || 'আমাদের সম্মানিত গ্রাহকদের সফলভাবে বুঝিয়ে দেওয়া প্রিমিয়াম আসবাবপত্র ও এক্সক্লুসিভ হোম ইন্টেরিয়র ডিজাইনের বাস্তব ছবি ও ভিডিও অ্যালবাম।';
       pageUrl = baseUrl + '/handover-projects';
+    } else if (currentView === 'furniture') {
+      pageTitle = `ফার্নিচার কালেকশন | খাঁটি সেগুন কাঠের আসবাবপত্র - ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Furniture'}`;
+      pageDesc = 'আবেদ ফার্ণিচারের এক্সক্লুসিভ চিটাগাং ও বার্মিজ সেগুন কাঠের খাট, সোফা সেট, ডাইনিং টেবিল, আলমারি ও ওয়্যারড্রব কালেকশন। গেন্ডারিয়া, ঢাকা।';
+      pageUrl = baseUrl + '/furniture';
+    } else if (currentView === 'interior-design') {
+      pageTitle = `ইন্টেরিয়র ডিজাইন সার্ভিস | আধুনিক হোম ও অফিস ইন্টেরিয়র - ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Interior'}`;
+      pageDesc = 'দুবাইয়ের অভিজ্ঞতাসম্পন্ন চিফ ডিজাইনার লিটন আলীর পরিকল্পনায় আধুনিক হোম, ফ্ল্যাট ও অফিস ইন্টেরিয়র ডিজাইন, মডুলার কিচেন ও ফলস সিলিং।';
+      pageUrl = baseUrl + '/interior-design';
+    } else if (currentView === 'custom-furniture') {
+      pageTitle = `কাস্টম ফার্নিচার তৈরি | পছন্দসই ডিজাইন ও পরিমাপে - ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Furniture'}`;
+      pageDesc = 'আপনার ঘরের নির্দিষ্ট পরিমাপ ও পছন্দ অনুযায়ী খাঁটি চিটাগাং সেগুন কাঠের কাস্টম ফার্নিচার তৈরি। ১০০% সিজনড কাঠ ও লাইফটাইম ঘুণের গ্যারান্টি।';
+      pageUrl = baseUrl + '/custom-furniture';
+    } else if (currentView === 'about') {
+      pageTitle = `আমাদের পরিচিতি ও প্রধান কারিগর লিটন আলী | ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Furniture'}`;
+      pageDesc = '১৫+ বছরের কাঠের কারুকাজ অভিজ্ঞতা ও দুবাই আরব টেক প্রকল্পের অভিজ্ঞতাসম্পন্ন প্রধান ডিজাইনার লিটন আলীর নেতৃত্বে পরিচালিত আবেদ ফার্ণিচার ও ইন্টেরিয়র।';
+      pageUrl = baseUrl + '/about';
+    } else if (currentView === 'contact') {
+      pageTitle = `যোগাযোগ ও শোরুমের অবস্থান | ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Furniture & Interior'}`;
+      pageDesc = `আবেদ ফার্ণিচার ও ইন্টেরিয়র শোরুম: ধূপখোলা মাঠ সংলগ্ন, গেন্ডারিয়া, ঢাকা। সরাসরি কল বা হোয়াটসঅ্যাপে যোগাযোগ করুন: ${siteSettings.phone1}।`;
+      pageUrl = baseUrl + '/contact';
     } else if (selectedProduct) {
       pageTitle = `${selectedProduct.nameBn || selectedProduct.nameEn} | ${siteSettings.brandNameLeft || 'Abed'} ${siteSettings.brandNameRight || 'Furniture'}`;
       pageDesc = selectedProduct.descriptionBn || selectedProduct.descriptionEn || pageDesc;
@@ -433,23 +558,8 @@ export default function App() {
           const loaded: Product[] = [];
           snapshot.forEach((docSnap) => {
             const data = docSnap.data();
-            const primaryImg = 
-              data.imgUrl || 
-              data.image || 
-              data.imageUrl || 
-              data.coverImage || 
-              (Array.isArray(data.images) && data.images.find(Boolean)) || 
-              (Array.isArray(data.gallery) && data.gallery.find(Boolean)) || 
-              (Array.isArray(data.photos) && data.photos.find(Boolean)) || 
-              'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80';
-            
-            const allImages: string[] = Array.isArray(data.images) && data.images.length > 0
-              ? data.images
-              : Array.isArray(data.gallery) && data.gallery.length > 0
-                ? data.gallery
-                : Array.isArray(data.photos) && data.photos.length > 0
-                  ? data.photos
-                  : (primaryImg ? [primaryImg] : []);
+            const primaryImg = getProductMainImage(data);
+            const allImages = getProductGalleryImages(data);
 
             loaded.push({
               id: docSnap.id,
@@ -971,32 +1081,41 @@ export default function App() {
 
   const handleProductCreate = async (newProduct: Product) => {
     try {
-      // 1. Save to Supabase Database
+      const resolvedMain = getProductMainImage(newProduct);
+      const resolvedGallery = getProductGalleryImages(newProduct);
+
+      const normalizedProduct: Product = {
+        ...newProduct,
+        imgUrl: resolvedMain,
+        images: resolvedGallery
+      };
+
+      // 1. Save to Supabase Database (if configured)
       try {
-        await saveProductToSupabase(newProduct);
+        await saveProductToSupabase(normalizedProduct);
       } catch (sbErr) {
         console.warn('Supabase product create note:', sbErr);
       }
 
-      // 2. Also keep Firebase in sync if available
+      // 2. Save to Firebase Firestore (Primary Database)
       try {
         await ensureAuthSession();
         const payload = {
-          ...newProduct,
-          imgUrl: newProduct.imgUrl,
-          image: newProduct.imgUrl,
-          imageUrl: newProduct.imgUrl,
-          coverImage: newProduct.imgUrl,
-          images: newProduct.images || (newProduct.imgUrl ? [newProduct.imgUrl] : []),
-          gallery: newProduct.images || (newProduct.imgUrl ? [newProduct.imgUrl] : [])
+          ...normalizedProduct,
+          imgUrl: resolvedMain,
+          image: resolvedMain,
+          imageUrl: resolvedMain,
+          coverImage: resolvedMain,
+          images: resolvedGallery,
+          gallery: resolvedGallery
         };
-        await setDoc(doc(db, 'products', newProduct.id), payload);
+        await setDoc(doc(db, 'products', normalizedProduct.id), payload);
       } catch (fbErr) {
         console.warn('Firebase product create note:', fbErr);
       }
 
-      setProducts(prev => [newProduct, ...prev.filter(p => p.id !== newProduct.id)]);
-      localStorage.setItem('abed_products', JSON.stringify([newProduct, ...products.filter(p => p.id !== newProduct.id)]));
+      setProducts(prev => [normalizedProduct, ...prev.filter(p => p.id !== normalizedProduct.id)]);
+      localStorage.setItem('abed_products', JSON.stringify([normalizedProduct, ...products.filter(p => p.id !== normalizedProduct.id)]));
       showNotification('নতুন পণ্যটি সফলভাবে সংগ্রহশালায় যুক্ত করা হয়েছে!');
     } catch (err) {
       console.error('Error creating product:', err);
@@ -1007,32 +1126,54 @@ export default function App() {
 
   const handleProductUpdate = async (updatedProduct: Product) => {
     try {
-      // 1. Update in Supabase Database
+      // Find existing product to safeguard against accidental image loss
+      const existingProduct = products.find(p => p.id === updatedProduct.id);
+      const previousImage = existingProduct ? getProductMainImage(existingProduct) : '';
+      const previousGallery = existingProduct ? getProductGalleryImages(existingProduct) : [];
+
+      let resolvedMain = getProductMainImage(updatedProduct);
+      // If updated product fell back to default placeholder but previous product had a custom image, keep previous!
+      if (resolvedMain === DEFAULT_PRODUCT_FALLBACK_IMAGE && previousImage && previousImage !== DEFAULT_PRODUCT_FALLBACK_IMAGE) {
+        resolvedMain = previousImage;
+      }
+
+      let resolvedGallery = getProductGalleryImages(updatedProduct);
+      if (resolvedGallery.length === 1 && resolvedGallery[0] === DEFAULT_PRODUCT_FALLBACK_IMAGE && previousGallery.length > 0) {
+        resolvedGallery = previousGallery;
+      }
+
+      const normalizedProduct: Product = {
+        ...updatedProduct,
+        imgUrl: resolvedMain,
+        images: resolvedGallery
+      };
+
+      // 1. Update in Supabase Database (if configured)
       try {
-        await saveProductToSupabase(updatedProduct);
+        await saveProductToSupabase(normalizedProduct);
       } catch (sbErr) {
         console.warn('Supabase product update note:', sbErr);
       }
 
-      // 2. Also keep Firebase in sync if available
+      // 2. Update in Firebase Firestore (Primary Database)
       try {
         await ensureAuthSession();
         const payload = {
-          ...updatedProduct,
-          imgUrl: updatedProduct.imgUrl,
-          image: updatedProduct.imgUrl,
-          imageUrl: updatedProduct.imgUrl,
-          coverImage: updatedProduct.imgUrl,
-          images: updatedProduct.images || (updatedProduct.imgUrl ? [updatedProduct.imgUrl] : []),
-          gallery: updatedProduct.images || (updatedProduct.imgUrl ? [updatedProduct.imgUrl] : [])
+          ...normalizedProduct,
+          imgUrl: resolvedMain,
+          image: resolvedMain,
+          imageUrl: resolvedMain,
+          coverImage: resolvedMain,
+          images: resolvedGallery,
+          gallery: resolvedGallery
         };
-        await setDoc(doc(db, 'products', updatedProduct.id), payload, { merge: true });
+        await setDoc(doc(db, 'products', normalizedProduct.id), payload, { merge: true });
       } catch (fbErr) {
         console.warn('Firebase product update note:', fbErr);
       }
 
-      setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-      localStorage.setItem('abed_products', JSON.stringify(products.map(p => p.id === updatedProduct.id ? updatedProduct : p)));
+      setProducts(prev => prev.map(p => p.id === normalizedProduct.id ? normalizedProduct : p));
+      localStorage.setItem('abed_products', JSON.stringify(products.map(p => p.id === normalizedProduct.id ? normalizedProduct : p)));
       showNotification('পণ্যটির তথ্য সফলভাবে আপডেট করা হয়েছে!');
     } catch (err) {
       console.error('Error updating product:', err);
@@ -1214,6 +1355,197 @@ export default function App() {
     );
   }
 
+  // Product Lightbox Modal superseded by dedicated mobile-shaped ProductDetailsPage
+  const renderProductLightbox = () => null;
+
+  // Dedicated View for Furniture Catalog (/furniture)
+  if (currentView === 'furniture') {
+    return (
+      <div className="min-h-screen bg-[#faf9f4] text-[#2c1d07] font-sans antialiased flex flex-col justify-between selection:bg-[#d4a762] selection:text-[#1a1200]">
+        <SiteHeader
+          currentRoute="furniture"
+          brandNameLeft={siteSettings.brandNameLeft}
+          brandNameRight={siteSettings.brandNameRight}
+          tagline={siteSettings.tagline}
+          phone1={siteSettings.phone1}
+          onNavigate={navigateTo}
+        />
+        <main className="flex-1">
+          <FurniturePage
+            products={products}
+            phone1={siteSettings.phone1}
+            pageTitle={siteSettings.furniturePageTitle}
+            pageSubtitle={siteSettings.furniturePageSubtitle}
+            heroBadge={siteSettings.furniturePageBadge}
+            onNavigate={navigateTo}
+            onSelectProduct={handleSelectProduct}
+          />
+        </main>
+        <SiteFooter
+          brandNameLeft={siteSettings.brandNameLeft}
+          brandNameRight={siteSettings.brandNameRight}
+          phone1={siteSettings.phone1}
+          phone2={siteSettings.phone2}
+          showroomAddress={siteSettings.showroomAddress}
+          showroomHours={siteSettings.showroomHours}
+          onNavigate={navigateTo}
+        />
+      </div>
+    );
+  }
+
+  // Dedicated View for Full Product Information (/product)
+  if (currentView === 'product') {
+    const activeProd = selectedProduct || products[0];
+    return (
+      <ProductDetailsPage
+        product={activeProd}
+        phone1={siteSettings.phone1}
+        phone2={siteSettings.phone2}
+        onNavigate={navigateTo}
+        onExit={handleExitProduct}
+        onSelectProduct={handleSelectProduct}
+      />
+    );
+  }
+
+  // Dedicated View for Interior Design (/interior-design)
+  if (currentView === 'interior-design') {
+    return (
+      <div className="min-h-screen bg-[#faf9f4] text-[#2c1d07] font-sans antialiased flex flex-col justify-between selection:bg-[#d4a762] selection:text-[#1a1200]">
+        <SiteHeader
+          currentRoute="interior-design"
+          brandNameLeft={siteSettings.brandNameLeft}
+          brandNameRight={siteSettings.brandNameRight}
+          tagline={siteSettings.tagline}
+          phone1={siteSettings.phone1}
+          onNavigate={navigateTo}
+        />
+        <main className="flex-1">
+          <InteriorDesignPage
+            products={products}
+            phone1={siteSettings.phone1}
+            pageTitle={siteSettings.interiorPageTitle}
+            pageSubtitle={siteSettings.interiorPageSubtitle}
+            heroBadge={siteSettings.interiorPageBadge}
+            onNavigate={navigateTo}
+            onSelectProduct={handleSelectProduct}
+          />
+        </main>
+        <SiteFooter
+          brandNameLeft={siteSettings.brandNameLeft}
+          brandNameRight={siteSettings.brandNameRight}
+          phone1={siteSettings.phone1}
+          phone2={siteSettings.phone2}
+          showroomAddress={siteSettings.showroomAddress}
+          showroomHours={siteSettings.showroomHours}
+          onNavigate={navigateTo}
+        />
+      </div>
+    );
+  }
+
+  // Dedicated View for Custom Furniture (/custom-furniture)
+  if (currentView === 'custom-furniture') {
+    return (
+      <div className="min-h-screen bg-[#faf9f4] text-[#2c1d07] font-sans antialiased flex flex-col justify-between selection:bg-[#d4a762] selection:text-[#1a1200]">
+        <SiteHeader
+          currentRoute="custom-furniture"
+          brandNameLeft={siteSettings.brandNameLeft}
+          brandNameRight={siteSettings.brandNameRight}
+          tagline={siteSettings.tagline}
+          phone1={siteSettings.phone1}
+          onNavigate={navigateTo}
+        />
+        <main className="flex-1">
+          <CustomFurniturePage
+            phone1={siteSettings.phone1}
+            onNavigate={navigateTo}
+          />
+        </main>
+        <SiteFooter
+          brandNameLeft={siteSettings.brandNameLeft}
+          brandNameRight={siteSettings.brandNameRight}
+          phone1={siteSettings.phone1}
+          phone2={siteSettings.phone2}
+          showroomAddress={siteSettings.showroomAddress}
+          showroomHours={siteSettings.showroomHours}
+          onNavigate={navigateTo}
+        />
+      </div>
+    );
+  }
+
+  // Dedicated View for About Us (/about)
+  if (currentView === 'about') {
+    return (
+      <div className="min-h-screen bg-[#faf9f4] text-[#2c1d07] font-sans antialiased flex flex-col justify-between selection:bg-[#d4a762] selection:text-[#1a1200]">
+        <SiteHeader
+          currentRoute="about"
+          brandNameLeft={siteSettings.brandNameLeft}
+          brandNameRight={siteSettings.brandNameRight}
+          tagline={siteSettings.tagline}
+          phone1={siteSettings.phone1}
+          onNavigate={navigateTo}
+        />
+        <main className="flex-1">
+          <AboutPage
+            phone1={siteSettings.phone1}
+            showroomAddress={siteSettings.showroomAddress}
+            onNavigate={navigateTo}
+          />
+        </main>
+        <SiteFooter
+          brandNameLeft={siteSettings.brandNameLeft}
+          brandNameRight={siteSettings.brandNameRight}
+          phone1={siteSettings.phone1}
+          phone2={siteSettings.phone2}
+          showroomAddress={siteSettings.showroomAddress}
+          showroomHours={siteSettings.showroomHours}
+          onNavigate={navigateTo}
+        />
+      </div>
+    );
+  }
+
+  // Dedicated View for Contact Us (/contact)
+  if (currentView === 'contact') {
+    return (
+      <div className="min-h-screen bg-[#faf9f4] text-[#2c1d07] font-sans antialiased flex flex-col justify-between selection:bg-[#d4a762] selection:text-[#1a1200]">
+        <SiteHeader
+          currentRoute="contact"
+          brandNameLeft={siteSettings.brandNameLeft}
+          brandNameRight={siteSettings.brandNameRight}
+          tagline={siteSettings.tagline}
+          phone1={siteSettings.phone1}
+          onNavigate={navigateTo}
+        />
+        <main className="flex-1">
+          <ContactPage
+            phone1={siteSettings.phone1}
+            phone2={siteSettings.phone2}
+            showroomAddress={siteSettings.showroomAddress}
+            showroomHours={siteSettings.showroomHours}
+            showroomEmail={siteSettings.showroomEmail}
+            pageTitle={siteSettings.contactPageTitle}
+            pageSubtitle={siteSettings.contactPageSubtitle}
+            heroBadge={siteSettings.contactPageBadge}
+            onNavigate={navigateTo}
+          />
+        </main>
+        <SiteFooter
+          brandNameLeft={siteSettings.brandNameLeft}
+          brandNameRight={siteSettings.brandNameRight}
+          phone1={siteSettings.phone1}
+          phone2={siteSettings.phone2}
+          showroomAddress={siteSettings.showroomAddress}
+          showroomHours={siteSettings.showroomHours}
+          onNavigate={navigateTo}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fbfaf6] text-[#2c1d07] font-sans antialiased selection:bg-[#d4a762] selection:text-[#1a1200]">
       
@@ -1239,9 +1571,9 @@ export default function App() {
       <header className="bg-gradient-to-r from-[#170f01] via-[#2d1e05] to-[#170f01] text-white sticky top-0 z-40 shadow-xl border-b border-[#d4a762]/25 px-4 md:px-8 py-2 md:py-3 animate-none">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           
-          {/* Logo & Branding - Beautiful size, solid luxury border and a simple shining effect */}
+          {/* Logo & Branding - Clean static luxury presentation without shining animation */}
           <div className="flex items-center gap-2 xs:gap-3 sm:gap-4 md:gap-5 cursor-pointer max-w-[82%] sm:max-w-full" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="logo-shining-container h-14 xs:h-17 sm:h-20 md:h-24 lg:h-28 w-auto bg-white rounded-xl p-1 shadow-md border-2 border-[#d4a762] hover:scale-105 transition-transform duration-300 shrink-0">
+            <div className="h-14 xs:h-17 sm:h-20 md:h-24 lg:h-28 w-auto bg-white rounded-xl p-1 shadow-md border-2 border-[#d4a762] hover:scale-105 transition-transform duration-300 shrink-0">
               <img 
                 src="https://i.ibb.co.com/S4ZB9S14/ABED-FURNITURE-LOGO.jpg" 
                 alt="Abed Furniture & Interior" 
@@ -1262,39 +1594,54 @@ export default function App() {
             </div>
           </div>
 
-          {/* Desktop Nav Items - Ordered as requested: Our Product -> Our Projects -> Head Designer */}
-          <nav className="hidden md:flex items-center gap-6 lg:gap-8 font-outfit text-xs lg:text-sm font-semibold">
-            <button 
-              onClick={() => {
+          {/* Desktop Nav Items - All Crawlable SEO Routes */}
+          <nav className="hidden md:flex items-center gap-4 lg:gap-6 font-outfit text-xs lg:text-sm font-semibold">
+            <a 
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
                 if (currentView !== 'home') navigateTo('home');
                 scrollToSection('hero');
               }} 
               className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0] font-sans font-black text-sm"
             >
               হোমপেজ
-            </button>
-            <button 
-              onClick={() => {
-                if (currentView !== 'home') navigateTo('home');
-                setTimeout(() => scrollToSection('products'), 50);
+            </a>
+            <a 
+              href="/furniture"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('furniture');
               }} 
               className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0]"
             >
-              Products & Interior
-            </button>
-            <button 
-              onClick={() => {
-                if (currentView !== 'home') navigateTo('home');
-                setTimeout(() => scrollToSection('projects'), 50);
+              ফার্নিচার
+            </a>
+            <a 
+              href="/interior-design"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('interior-design');
               }} 
               className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0]"
             >
-              Our Projects
-            </button>
-            <button 
-              onClick={() => {
-                if (currentView !== 'home') navigateTo('home');
-                setTimeout(() => scrollToSection('completed-projects'), 50);
+              ইন্টেরিয়র
+            </a>
+            <a 
+              href="/custom-furniture"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('custom-furniture');
+              }} 
+              className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0]"
+            >
+              কাস্টম ফার্নিচার
+            </a>
+            <a 
+              href="/handover-projects"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('handover-projects');
               }} 
               className="handover-mini-shine hover:text-[#fff4d6] text-[#fdbf5e] transition-all cursor-pointer font-bold flex items-center gap-2 bg-gradient-to-r from-[#2a1b05] via-[#3d2708] to-[#2a1b05] hover:scale-105 active:scale-95 px-3.5 py-1.5 rounded-xl border border-[#d4a762]/70 shadow-[0_2px_14px_rgba(212,167,98,0.4)] group"
               title="আমাদের হস্তান্তরিত প্রজেক্টসমূহ দেখুন"
@@ -1302,25 +1649,27 @@ export default function App() {
               <Sparkles className="w-3.5 h-3.5 text-[#ffe699] animate-sparkle-twinkle shrink-0" />
               <span className="font-outfit tracking-wide text-xs">Handover Projects</span>
               <span className="text-[9.5px] bg-[#d4a762] text-[#1a1200] font-black px-1.5 py-0.2 rounded-full uppercase tracking-tighter">TAG</span>
-            </button>
-            <button 
-              onClick={() => {
-                if (currentView !== 'home') navigateTo('home');
-                setTimeout(() => scrollToSection('designer'), 50);
+            </a>
+            <a 
+              href="/about"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('about');
               }} 
               className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0]"
             >
-              Principal Designer
-            </button>
-            <button 
-              onClick={() => {
-                if (currentView !== 'home') navigateTo('home');
-                setTimeout(() => scrollToSection('contact'), 50);
+              পরিচিতি
+            </a>
+            <a 
+              href="/contact"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateTo('contact');
               }} 
               className="hover:text-[#d4a762] transition-colors cursor-pointer text-[#fffaf0]"
             >
-              Contact Us
-            </button>
+              যোগাযোগ
+            </a>
           </nav>
 
           {/* Right Action Button */}
@@ -1364,8 +1713,10 @@ export default function App() {
               </p>
             </div>
 
-            <button 
-              onClick={() => {
+            <a 
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
                 setIsMobileMenuOpen(false);
                 if (currentView !== 'home') navigateTo('home');
                 scrollToSection('hero');
@@ -1374,34 +1725,49 @@ export default function App() {
             >
               <span>HOME</span>
               <span className="text-[12px] text-[#d4a762] font-bold font-sans">হোমপেজ</span>
-            </button>
-            <button 
-              onClick={() => {
+            </a>
+            <a 
+              href="/furniture"
+              onClick={(e) => {
+                e.preventDefault();
                 setIsMobileMenuOpen(false);
-                if (currentView !== 'home') navigateTo('home');
-                scrollToSection('products');
+                navigateTo('furniture');
               }} 
               className="text-left py-2.5 px-2 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
-              <span>PRODUCTS</span>
-              <span className="text-[12px] text-[#d4a762] font-bold font-sans">পণ্যসমূহ</span>
-            </button>
-            <button 
-              onClick={() => {
+              <span>FURNITURE</span>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">ফার্নিচার ক্যাটালগ</span>
+            </a>
+            <a 
+              href="/interior-design"
+              onClick={(e) => {
+                e.preventDefault();
                 setIsMobileMenuOpen(false);
-                if (currentView !== 'home') navigateTo('home');
-                scrollToSection('projects');
+                navigateTo('interior-design');
               }} 
               className="text-left py-2.5 px-2 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
-              <span>PROJECTS</span>
-              <span className="text-[12px] text-[#d4a762] font-bold font-sans">প্রজেক্ট অগ্রগতি</span>
-            </button>
-            <button 
-              onClick={() => {
+              <span>INTERIOR DESIGN</span>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">ইন্টেরিয়র ডিজাইন</span>
+            </a>
+            <a 
+              href="/custom-furniture"
+              onClick={(e) => {
+                e.preventDefault();
                 setIsMobileMenuOpen(false);
-                if (currentView !== 'home') navigateTo('home');
-                setTimeout(() => scrollToSection('completed-projects'), 50);
+                navigateTo('custom-furniture');
+              }} 
+              className="text-left py-2.5 px-2 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
+            >
+              <span>CUSTOM WOODCRAFT</span>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">কাস্টম ফার্নিচার</span>
+            </a>
+            <a 
+              href="/handover-projects"
+              onClick={(e) => {
+                e.preventDefault();
+                setIsMobileMenuOpen(false);
+                navigateTo('handover-projects');
               }} 
               className="text-left py-2.5 px-2 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
@@ -1410,29 +1776,31 @@ export default function App() {
                 <span className="bg-[#d4a762]/20 text-[#fdbf5e] border border-[#d4a762]/40 text-[9px] px-1.5 py-0.2 rounded font-mono font-bold">TAG</span>
               </span>
               <span className="text-[12px] text-[#d4a762] font-bold font-sans">হ্যান্ডওভার প্রজেক্ট</span>
-            </button>
-            <button 
-              onClick={() => {
+            </a>
+            <a 
+              href="/about"
+              onClick={(e) => {
+                e.preventDefault();
                 setIsMobileMenuOpen(false);
-                if (currentView !== 'home') navigateTo('home');
-                scrollToSection('designer');
+                navigateTo('about');
               }} 
               className="text-left py-2.5 px-2 font-bold text-stone-100 border-b border-white/5 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
-              <span>TEAMS</span>
-              <span className="text-[12px] text-[#d4a762] font-bold font-sans">টিম</span>
-            </button>
-            <button 
-              onClick={() => {
+              <span>ABOUT US</span>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">পরিচিতি ও কারিগর</span>
+            </a>
+            <a 
+              href="/contact"
+              onClick={(e) => {
+                e.preventDefault();
                 setIsMobileMenuOpen(false);
-                if (currentView !== 'home') navigateTo('home');
-                scrollToSection('contact');
+                navigateTo('contact');
               }} 
               className="text-left py-2.5 px-2 font-bold text-stone-100 hover:text-[#d4a762] flex justify-between items-center transition-colors font-outfit text-xs tracking-wider"
             >
               <span>CONTACT</span>
-              <span className="text-[12px] text-[#d4a762] font-bold font-sans">যোগাযোগ</span>
-            </button>
+              <span className="text-[12px] text-[#d4a762] font-bold font-sans">যোগাযোগ ও শোরুম</span>
+            </a>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1660,14 +2028,15 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Cover Image */}
+                {/* Cover Image - Beautifully adjusted to card */}
                 <div 
-                  onClick={() => setSelectedProduct(product)}
-                  className="h-56 overflow-hidden bg-gray-50 relative cursor-pointer"
+                  onClick={() => handleSelectProduct(product)}
+                  className="aspect-[4/3] w-full overflow-hidden bg-stone-100 relative cursor-pointer"
                 >
                   <img
-                    src={product.imgUrl}
+                    src={getProductMainImage(product)}
                     alt={product.nameEn}
+                    onError={(e) => handleProductImageError(e)}
                     className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                     style={{ 
                       imageRendering: '-webkit-optimize-contrast',
@@ -1679,7 +2048,7 @@ export default function App() {
                   <div className="absolute inset-0 bg-[#1a1200]/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <span className="bg-white text-xs text-[#1a1200] font-extrabold px-4.5 py-2.5 rounded-full flex items-center gap-1.5 shadow-md transform scale-90 group-hover:scale-100 transition-transform duration-300">
                       <Flame className="w-4 h-4 text-red-500" />
-                      বিস্তারিত দেখুন
+                      সম্পূর্ণ তথ্য দেখুন
                     </span>
                   </div>
                 </div>
@@ -1688,7 +2057,7 @@ export default function App() {
                 <div className="p-5 flex-1 flex flex-col">
                   {/* English Name (Simple English Name) */}
                   <h4 
-                    onClick={() => setSelectedProduct(product)}
+                    onClick={() => handleSelectProduct(product)}
                     className="font-bold text-base text-[#2c1d07] group-hover:text-[#d4a762] transition-colors line-clamp-1 cursor-pointer font-sans"
                   >
                     {product.nameEn}
@@ -1724,10 +2093,11 @@ export default function App() {
                     </div>
 
                     <button
-                      onClick={() => setSelectedProduct(product)}
+                      type="button"
+                      onClick={() => handleSelectProduct(product)}
                       className="bg-[#faf9f4] hover:bg-[#d4a762] text-stone-700 hover:text-[#1a1200] px-3.5 py-2 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer border border-gray-100/40"
                     >
-                      বিস্তারিত
+                      বিস্তারিত তথ্য
                     </button>
                   </div>
 
@@ -2541,12 +2911,13 @@ export default function App() {
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">বিকল্প সংযোগ নম্বর ৩ (Footer Phone 3)</label>
+                          <label className="block text-xs font-bold text-stone-400 mb-1.5 uppercase">অফিসিয়াল ইমেইল (Showroom Email)</label>
                           <input 
-                            type="text"
-                            value={siteSettings.phone3}
-                            onChange={(e) => setSiteSettings(prev => ({ ...prev, phone3: e.target.value }))}
+                            type="email"
+                            value={siteSettings.showroomEmail || ''}
+                            onChange={(e) => setSiteSettings(prev => ({ ...prev, showroomEmail: e.target.value }))}
                             className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#d4a762]"
+                            placeholder="litona644@gmail.com"
                           />
                         </div>
                       </div>
@@ -2956,10 +3327,6 @@ export default function App() {
                 <Phone className="w-3.5 h-3.5" />
                 <span className="text-stone-300">{siteSettings.phone2}</span>
               </p>
-              <p className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-[#d4a762]" />
-                <span className="text-stone-300">{siteSettings.phone3}</span>
-              </p>
             </div>
           </div>
 
@@ -2967,139 +3334,27 @@ export default function App() {
 
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center text-xs text-stone-400 text-center sm:text-left gap-4 font-sans">
           <p>© ২০২৬ {siteSettings.brandNameLeft} {siteSettings.brandNameRight} | সর্বস্বত্ব সংরক্ষিত</p>
-          <div className="flex gap-4">
-            <button onClick={() => scrollToSection('hero')} className="hover:text-white transition-colors cursor-pointer font-semibold">Home</button>
-            <button onClick={() => scrollToSection('products')} className="hover:text-white transition-colors cursor-pointer font-semibold">Products</button>
-            <button onClick={() => navigateTo('handover-projects')} className="hover:text-[#fdbf5e] transition-colors cursor-pointer font-semibold">Handover Projects</button>
-            <button onClick={() => scrollToSection('designer')} className="hover:text-white transition-colors cursor-pointer font-semibold">Designer</button>
-            <button 
-              type="button"
-              onClick={() => navigateTo('admin')} 
-              className="text-xs hover:text-[#fdbf5e] text-stone-400 transition-colors cursor-pointer font-bold flex items-center gap-1.5 px-3 py-1 rounded-xl border border-stone-800 hover:border-[#d4a762]/30 hover:bg-white/5"
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+            <a href="/" onClick={(e) => { e.preventDefault(); scrollToSection('hero'); }} className="hover:text-white transition-colors cursor-pointer font-semibold">Home</a>
+            <a href="/furniture" onClick={(e) => { e.preventDefault(); navigateTo('furniture'); }} className="hover:text-[#fdbf5e] transition-colors cursor-pointer font-semibold">Furniture</a>
+            <a href="/interior-design" onClick={(e) => { e.preventDefault(); navigateTo('interior-design'); }} className="hover:text-[#fdbf5e] transition-colors cursor-pointer font-semibold">Interior Design</a>
+            <a href="/custom-furniture" onClick={(e) => { e.preventDefault(); navigateTo('custom-furniture'); }} className="hover:text-[#fdbf5e] transition-colors cursor-pointer font-semibold">Custom Furniture</a>
+            <a href="/handover-projects" onClick={(e) => { e.preventDefault(); navigateTo('handover-projects'); }} className="hover:text-[#fdbf5e] transition-colors cursor-pointer font-semibold">Handover Projects</a>
+            <a href="/about" onClick={(e) => { e.preventDefault(); navigateTo('about'); }} className="hover:text-[#fdbf5e] transition-colors cursor-pointer font-semibold">About Us</a>
+            <a href="/contact" onClick={(e) => { e.preventDefault(); navigateTo('contact'); }} className="hover:text-[#fdbf5e] transition-colors cursor-pointer font-semibold">Contact</a>
+            <a 
+              href="/admin" 
+              onClick={(e) => { e.preventDefault(); navigateTo('admin'); }} 
+              className="hover:text-[#fdbf5e] transition-colors cursor-pointer font-semibold"
             >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Admin Console</span>
-            </button>
+              Admin Console
+            </a>
           </div>
         </div>
-      </footer>�
-
-
+      </footer>
 
       {/* 4. PRODUCT LIGHTBOX MODAL */}
-      <AnimatePresence>
-        {selectedProduct && (
-          <div className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#faf9f4] text-[#2c1d07] rounded-3xl overflow-hidden max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl relative border border-[#d4a762]/30"
-            >
-              
-              {/* Close Button */}
-              <button 
-                onClick={() => setSelectedProduct(null)}
-                className="absolute top-4 right-4 bg-black/60 hover:bg-black text-white p-2.5 rounded-full z-10 hover:scale-105 transition-transform cursor-pointer shadow-md"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="flex flex-col md:flex-row items-stretch">
-                {/* Product Image */}
-                <div className="md:w-1/2 min-h-[320px] md:min-h-[440px] relative bg-stone-950 flex items-center justify-center p-3">
-                  <img 
-                    src={activeModalImage || selectedProduct.imgUrl} 
-                    alt={selectedProduct.nameEn} 
-                    className="max-h-[420px] w-full h-full object-contain select-none mx-auto rounded-xl shadow-lg transition-all"
-                    style={{ 
-                      imageRendering: '-webkit-optimize-contrast',
-                      WebkitBackfaceVisibility: 'hidden',
-                      transform: 'translateZ(0)'
-                    }}
-                    decoding="sync"
-                    referrerPolicy="no-referrer"
-                  />
-                  {selectedProduct.isTrending && (
-                    <div className="absolute top-4 left-4 bg-gradient-to-r from-red-600 via-red-500 to-orange-500 text-white text-[10px] font-black tracking-wider uppercase border border-yellow-400 py-1.5 px-3.5 rounded-full z-10 shadow-lg flex items-center gap-1.5 animate-pulse">
-                      <Flame className="w-4 h-4 text-yellow-300 animate-bounce" />
-                      আজকের হট কালেকশন
-                    </div>
-                  )}
-
-                  {/* View Full Original Photo button */}
-                  <a
-                    href={activeModalImage || selectedProduct.imgUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute bottom-3 right-3 bg-black/75 hover:bg-black text-amber-300 hover:text-white text-[10px] font-bold px-3 py-1.5 rounded-full border border-white/20 backdrop-blur-md flex items-center gap-1.5 transition-all shadow-md z-10"
-                    title="আসল ফুল কোয়ালিটি ছবি নতুন ট্যাবে দেখুন"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5 text-[#fdbf5e]" />
-                    <span>আসল ছবি (HD)</span>
-                  </a>
-                </div>
-
-                {/* Specs breakdown */}
-                <div className="md:w-1/2 p-6 md:p-8 flex flex-col justify-between bg-white">
-                  <div>
-                    <span className="text-[10px] font-extrabold text-[#d4a762] uppercase tracking-wider bg-[#faf9f4] px-2.5 py-1 rounded border border-[#d4a762]/10 inline-block">
-                      {selectedProduct.category === 'furniture' ? 'সেগুন কাঠের আসবাবপত্র (Furniture)' : 'ইন্টেরিয়র ডিজাইন (Interior Projects)'}
-                    </span>
-                    
-                    {/* Primary English Name */}
-                    <h3 className="text-xl md:text-2xl font-black text-[#2c1d07] mt-3 tracking-tight leading-snug">
-                      {selectedProduct.nameEn}
-                    </h3>
-                    
-                    {/* Secondary Bengali Name */}
-                    <div className="text-sm md:text-base font-black text-[#b07e35] mt-1.5 mb-3.5 select-all cursor-pointer">
-                      {selectedProduct.nameBn}
-                    </div>
-
-                    <p className="text-[10px] text-stone-400 uppercase font-black tracking-wider mb-4">Abed Furniture & Interior Designs</p>
-                    
-                    {/* Bengali detailed descriptions */}
-                    <p className="text-sm md:text-[15px] text-stone-700 leading-relaxed font-semibold mb-6 border-l-3 border-[#d4a762] pl-4 py-2.5 bg-[#faf9f4]/80 rounded-r-xl font-sans">
-                      {selectedProduct.descriptionBn}
-                    </p>
-
-                    <h4 className="font-extrabold text-[#2c1d07] text-[12px] md:text-[13px] uppercase tracking-wider mb-2.5">উপকরণ ও বৈশিষ্ট্য (Specifications):</h4>
-                    <ul className="space-y-2 text-xs md:text-sm text-stone-600 mb-6 font-bold">
-                      {selectedProduct.specsBn.map((feature, idx) => (
-                        <li key={idx} className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-[#d4a762] shrink-0" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="pt-4 border-t border-stone-100 flex items-center justify-between">
-                    <div>
-                      <p className="text-[9.5px] text-stone-400 uppercase font-black tracking-tight"> আনুমানিক বাজেট (Estimated Budget)</p>
-                      <p className="text-base md:text-lg font-mono font-black text-[#b07e35] tracking-tight">{selectedProduct.priceRangeEn}</p>
-                    </div>
-
-                    {/* WhatsApp prefilled contact in Bengali */}
-                    <a
-                      href={`https://wa.me/8801816234157?text=${encodeURIComponent(`আসসালামু আলাইকুম, আমি আবেদের এই কাঠের পণ্যটিতে আগ্রহী: ${selectedProduct.nameEn} (${selectedProduct.nameBn} | ${selectedProduct.priceRangeBn})। অনুগ্রহ করে আরও বিস্তারিত ও অর্ডার বুকিং প্রসেস সম্পর্কে জানাবেন কি?`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-[#24d366] hover:bg-[#1ebd54] text-white font-extrabold text-[11px] px-3.5 py-2.5 rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1 scale-100 hover:scale-105 active:scale-95 text-center"
-                    >
-                      হোয়াটসঅ্যাপ যোগাযোগ
-                    </a>
-                  </div>
-
-                </div>
-              </div>
-
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {renderProductLightbox()}
 
       {/* Dynamic Homepage Notice Box (Floating Bottom Toast Position) */}
       <HomepageNoticeBox settings={siteSettings} position="floating_bottom" />

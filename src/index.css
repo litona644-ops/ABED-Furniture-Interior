@@ -91,30 +91,14 @@ body {
   animation: golden-neon-flow 3.5s infinite ease-in-out;
 }
 
-/* Logo special shining sweep container (Minimal neon, pure lux sweep) */
+/* Logo container - Clean static presentation without shining animation */
 .logo-shining-container {
   position: relative;
   overflow: hidden;
 }
 
 .logo-shining-container::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.5) 30%,
-    rgba(255, 255, 255, 0.6) 35%,
-    rgba(255, 255, 255, 0.3) 40%,
-    rgba(255, 255, 255, 0) 70%
-  );
-  transform: rotate(30deg);
-  pointer-events: none;
-  animation: logo-shining-sweep 6s infinite ease-in-out;
+  display: none !important;
 }
 
 /* Designer photo staggered sweep (shines shortly after the logo) */
