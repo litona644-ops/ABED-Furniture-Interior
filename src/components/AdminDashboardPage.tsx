@@ -38,6 +38,7 @@ import { AdminOfferBannerManager } from './AdminOfferBannerManager';
 import { AdminNoticeManager } from './AdminNoticeManager';
 import { AdminThemeColorManager } from './AdminThemeColorManager';
 import { AdminAccessSecurityDashboard } from './AdminAccessSecurityDashboard';
+import { AdminScheduledLockdownControls } from './AdminScheduledLockdownControls';
 
 interface AdminDashboardPageProps {
   isAdminUnlocked: boolean;
@@ -55,6 +56,8 @@ interface AdminDashboardPageProps {
   setAdminNotification: (v: { message: string; type: 'success' | 'error' } | null) => void;
   isMaintenanceMode: boolean;
   onToggleMaintenance: () => void;
+  onScheduleLockdown?: (durationValue: string) => Promise<void>;
+  onCancelScheduledLockdown?: () => Promise<void>;
   products: Product[];
   onProductCreated: (p: Product) => Promise<void>;
   onProductUpdated: (p: Product) => Promise<void>;
@@ -91,6 +94,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   setAdminNotification,
   isMaintenanceMode,
   onToggleMaintenance,
+  onScheduleLockdown,
+  onCancelScheduledLockdown,
   products,
   onProductCreated,
   onProductUpdated,
@@ -324,7 +329,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="পাসওয়ার্ড লিখুন (যেমন: abed2026)"
+                      placeholder="আপনার এডমিন পাসওয়ার্ড বা মাস্টার পাসকোড লিখুন"
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                       disabled={lockoutSeconds > 0}
@@ -436,6 +441,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                     <span>Persistent (Supabase + Firebase + LocalStorage)</span>
                   </div>
                 </div>
+
+                {/* Advanced Scheduled Lockdown Duration System */}
+                <AdminScheduledLockdownControls
+                  isMaintenanceMode={isMaintenanceMode}
+                  siteSettings={siteSettings}
+                  onToggleMaintenance={onToggleMaintenance}
+                  onScheduleLockdown={onScheduleLockdown}
+                  onCancelScheduledLockdown={onCancelScheduledLockdown}
+                />
               </div>
 
               {/* QUICK METRICS TILE */}
@@ -626,6 +640,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                         </button>
                       </div>
                     </div>
+
+                    {/* Advanced Scheduled Lockdown Duration System */}
+                    <AdminScheduledLockdownControls
+                      isMaintenanceMode={isMaintenanceMode}
+                      siteSettings={siteSettings}
+                      onToggleMaintenance={onToggleMaintenance}
+                      onScheduleLockdown={onScheduleLockdown}
+                      onCancelScheduledLockdown={onCancelScheduledLockdown}
+                    />
 
                     <div className="p-4 rounded-xl bg-black border border-white/[0.06] text-xs text-stone-300 space-y-2">
                       <span className="text-white font-bold block text-xs">

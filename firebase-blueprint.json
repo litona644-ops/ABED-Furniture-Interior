@@ -79,6 +79,60 @@
         "createdAt": { "type": "number" }
       },
       "required": ["id", "title", "description", "category", "clientLocation", "completionDate"]
+    },
+    "VisitorRecord": {
+      "title": "VisitorRecord",
+      "description": "Anonymized page visit telemetry for business analytics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ip": { "type": "string" },
+        "country": { "type": "string" },
+        "city": { "type": "string" },
+        "device": { "type": "string", "enum": ["desktop", "mobile", "tablet"] },
+        "browser": { "type": "string" },
+        "os": { "type": "string" },
+        "visitedPage": { "type": "string" },
+        "referrer": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "visitedPage", "timestamp"]
+    },
+    "AdminDeviceSession": {
+      "title": "AdminDeviceSession",
+      "description": "Active authorized administrator session tracking",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "adminEmail": { "type": "string" },
+        "deviceName": { "type": "string" },
+        "browser": { "type": "string" },
+        "os": { "type": "string" },
+        "deviceType": { "type": "string", "enum": ["Desktop", "Mobile", "Tablet"] },
+        "loginAt": { "type": "string" },
+        "lastActive": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["sessionId", "adminEmail", "loginAt"]
+    },
+    "CustomFurnitureRequest": {
+      "title": "CustomFurnitureRequest",
+      "description": "Customer bespoke furniture quotation and drawing request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "furnitureType": { "type": "string" },
+        "timberType": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "customDimensions": { "type": "string" },
+        "customNotes": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "contacted", "confirmed", "completed"] },
+        "timestamp": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "furnitureType", "timberType", "clientPhone", "timestamp"]
     }
   },
   "firestore": {
@@ -97,6 +151,18 @@
     "/completed_projects/{projectId}": {
       "schema": "CompletedProject",
       "description": "Handed over and completed customer projects"
+    },
+    "/visitor_analytics/{recordId}": {
+      "schema": "VisitorRecord",
+      "description": "Aggregated visitor telemetry"
+    },
+    "/admin_sessions/{sessionId}": {
+      "schema": "AdminDeviceSession",
+      "description": "Authenticated admin workstation sessions"
+    },
+    "/custom_furniture_requests/{requestId}": {
+      "schema": "CustomFurnitureRequest",
+      "description": "Customer bespoke furniture custom order inquiries"
     }
   }
 }

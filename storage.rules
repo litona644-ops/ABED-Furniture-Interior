@@ -1,11 +1,38 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    
+    // Security & Authorization Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email in ['litona644@gmail.com', 'admin@abedfurniture.com'] ||
+        request.auth.token.admin == true
+      );
+    }
+
+    // Strict validation for allowed image formats (JPG, JPEG, PNG, WEBP) up to 25MB
+    function isValidImage() {
+      return request.resource != null 
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)')
+        && request.resource.size <= 25 * 1024 * 1024;
+    }
+
+    // Strict validation for video formats (MP4, QuickTime, WebM) up to 100MB
+    function isValidVideo() {
+      return request.resource != null 
+        && request.resource.contentType.matches('video/(mp4|quicktime|webm)')
+        && request.resource.size <= 100 * 1024 * 1024;
+    }
+
+    // Public read for gallery assets; strictly authenticated Admin for uploads and deletes
     match /{allPaths=**} {
-      // Allow public read access to all uploaded photos & videos in website gallery
       allow read: if true;
-      // Allow authenticated admin uploads (or passcode admin sessions)
-      allow write: if request.auth != null || true;
+      allow write: if isAdmin() && (isValidImage() || isValidVideo());
+      allow delete: if isAdmin();
     }
   }
 }

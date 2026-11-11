@@ -312,7 +312,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                 ফেসবুকে আমাদের সাথে যুক্ত থাকুন
               </h3>
               <p className="text-xs text-[#fffdec] mt-2 leading-relaxed">
-                নতুন ডিজাইনার ফার্নিচার এবং এক্সক্লুসিভ অফারের আপডেট সরাসরি পেতে আমাদের অফিসিয়াল ফেসবুক পেজ ভিজিট করুন।
+                ক্লিক করে সরাসরি ফেসবুকে যুক্ত হয়ে যান
               </p>
               <div className="mt-4 inline-flex items-center gap-1.5 bg-white text-[#1877f2] font-black text-xs px-4 py-2 rounded-xl shadow-md group-hover:scale-105 transition-transform">
                 <span>ফেসবুক পেজ দেখুন</span>

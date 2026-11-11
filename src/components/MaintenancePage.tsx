@@ -1,22 +1,57 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Phone, MessageSquare, Lock, ArrowRight } from 'lucide-react';
+import { Phone, MessageSquare, Lock, ArrowRight, Clock, Sparkles } from 'lucide-react';
+import { calculateRemainingTime, CountdownResult } from '../lib/lockdownManager';
 
 interface MaintenancePageProps {
   brandNameLeft?: string;
   brandNameRight?: string;
   phone1?: string;
   showroomAddress?: string;
+  lockdownEndAt?: number | null;
+  lockdownMode?: 'manual' | 'scheduled' | 'off';
   onGoToAdmin?: () => void;
+  onLockdownExpired?: () => void;
 }
 
 export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   brandNameLeft = 'Abed',
   brandNameRight = 'Furniture & Interior',
   phone1 = '০১৮১৬-২৩৪১৫৭',
+  lockdownEndAt,
+  lockdownMode = 'manual',
   onGoToAdmin,
+  onLockdownExpired,
 }) => {
   const cleanPhone = phone1.replace(/[^0-9+]/g, '');
+
+  const [remaining, setRemaining] = useState<CountdownResult>(() => 
+    calculateRemainingTime(lockdownEndAt)
+  );
+
+  // Sync remaining countdown every second with real Firestore timestamp
+  useEffect(() => {
+    if (!lockdownEndAt || lockdownMode === 'manual') return;
+
+    // Immediate check
+    const initial = calculateRemainingTime(lockdownEndAt);
+    setRemaining(initial);
+    if (initial.isExpired) {
+      onLockdownExpired?.();
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const updated = calculateRemainingTime(lockdownEndAt);
+      setRemaining(updated);
+      if (updated.isExpired) {
+        clearInterval(timer);
+        onLockdownExpired?.();
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [lockdownEndAt, lockdownMode, onLockdownExpired]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col justify-between font-sans selection:bg-amber-200 selection:text-amber-900 relative overflow-x-hidden">
@@ -109,6 +144,98 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
             We'll Be Back Soon!
           </h2>
         </motion.div>
+
+        {/* ========================================================
+            PREMIUM DIGITAL COUNTDOWN CLOCK FOR SCHEDULED LOCKDOWN
+            ======================================================== */}
+        {lockdownEndAt && lockdownMode === 'scheduled' && !remaining.isExpired && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="w-full max-w-xl mx-auto mb-8 sm:mb-10 px-2"
+          >
+            <div className="bg-[#0b1320] border-2 border-[#d4a762]/40 rounded-3xl p-5 sm:p-7 shadow-2xl relative overflow-hidden text-center">
+              {/* Subtle Ambient Radial Lighting */}
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-72 h-32 bg-[#ff7a00]/15 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-10 right-10 w-40 h-28 bg-[#d4a762]/10 rounded-full blur-2xl pointer-events-none" />
+
+              {/* Status Header Badge */}
+              <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-white/[0.08] relative z-10">
+                <div className="inline-flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-[10px] sm:text-[11px] font-mono font-black tracking-widest uppercase text-[#ffb74d]">
+                    REOPENING COUNTDOWN
+                  </span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 text-[10px] font-mono text-stone-400 uppercase tracking-wider">
+                  <Clock className="w-3 h-3 text-[#d4a762]" />
+                  <span>Auto Live Sync</span>
+                </div>
+              </div>
+
+              {/* Digital Countdown Clock Grid */}
+              <div className="grid grid-cols-4 gap-2 sm:gap-3.5 relative z-10">
+                {/* Days */}
+                <div className="bg-[#142033] rounded-2xl p-3 sm:p-4 border border-white/[0.08] shadow-inner text-center">
+                  <span className="text-2xl sm:text-4xl md:text-5xl font-black font-mono text-white tracking-wider block">
+                    {String(remaining.days).padStart(2, '0')}
+                  </span>
+                  <span className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-widest text-[#ffb74d] mt-1 block font-sans">
+                    DAYS
+                  </span>
+                </div>
+
+                {/* Hours */}
+                <div className="bg-[#142033] rounded-2xl p-3 sm:p-4 border border-white/[0.08] shadow-inner text-center">
+                  <span className="text-2xl sm:text-4xl md:text-5xl font-black font-mono text-white tracking-wider block">
+                    {String(remaining.hours).padStart(2, '0')}
+                  </span>
+                  <span className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-widest text-[#ffb74d] mt-1 block font-sans">
+                    HOURS
+                  </span>
+                </div>
+
+                {/* Minutes */}
+                <div className="bg-[#142033] rounded-2xl p-3 sm:p-4 border border-white/[0.08] shadow-inner text-center">
+                  <span className="text-2xl sm:text-4xl md:text-5xl font-black font-mono text-white tracking-wider block">
+                    {String(remaining.minutes).padStart(2, '0')}
+                  </span>
+                  <span className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-widest text-[#ffb74d] mt-1 block font-sans">
+                    MINUTES
+                  </span>
+                </div>
+
+                {/* Seconds */}
+                <div className="bg-[#142033] rounded-2xl p-3 sm:p-4 border border-white/[0.08] shadow-inner text-center">
+                  <span className="text-2xl sm:text-4xl md:text-5xl font-black font-mono text-[#ff8a00] tracking-wider block">
+                    {String(remaining.seconds).padStart(2, '0')}
+                  </span>
+                  <span className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-widest text-[#ffb74d] mt-1 block font-sans">
+                    SECONDS
+                  </span>
+                </div>
+              </div>
+
+              {/* Exact Bengali Sentence Underneath Countdown */}
+              <p className="text-xs sm:text-[13px] text-stone-300 font-medium text-center mt-4 tracking-wide font-sans relative z-10">
+                উল্লেখিত সময় শেষে ওয়েবসাইটটি পুনরায় সচল হয়ে উঠবে।
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Manual Permanent Maintenance Indicator */}
+        {(!lockdownEndAt || lockdownMode === 'manual') && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-8 inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-900 text-xs font-bold"
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>সিস্টেম রক্ষণাবেক্ষণ ও আপগ্রেড কার্যক্রম চলমান রয়েছে</span>
+          </motion.div>
+        )}
 
         {/* ========================================================
             CENTER ILLUSTRATION (Laptop with barrier tape, cone, 

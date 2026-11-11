@@ -68,6 +68,7 @@ import { ProductDetailsPage } from './pages/ProductDetailsPage';
 import { loadThemeColors, applyThemeColors, DEFAULT_THEME_COLORS } from './lib/themeManager';
 import { recordPageView } from './lib/analytics';
 import { registerAdminSession, terminateAdminSession } from './lib/adminSessions';
+import { isLockdownActive, LOCKDOWN_DURATIONS } from './lib/lockdownManager';
 import { 
   getProductMainImage, 
   getProductGalleryImages, 
@@ -162,6 +163,12 @@ const DEFAULT_SETTINGS = {
   metaDescription: 'প্রিমিয়াম মেহগনি ও সেগুন কাঠের ফার্ণিচার এবং আধুনিক হোম ইন্টেরিয়র ডিজাইন সার্ভিস। গেন্ডারিয়া, ঢাকা।',
   seoKeywords: 'আবেদ ফার্ণিচার, আবেদ ইন্টেরিয়র, Abed Furniture, Abed Interior, Furniture Shop Dhaka, Interior Design Bangladesh, সেগুন কাঠের ফার্ণিচার, মেহগনি ফার্নিচার, Gandaria Dhaka Furniture, Modern Interior Design, Wood Craftsman Liton Ali, Luxury Furniture Dhaka',
   isMaintenanceMode: false,
+  isLocked: false,
+  lockdownMode: 'off',
+  lockdownDuration: '1h',
+  lockdownStartAt: null,
+  lockdownEndAt: null,
+  lockdownId: '',
   // Dynamic Homepage Offer & Advertisement Banner (Controlled by Admin)
   offerBannerEnabled: false,
   offerBannerType: 'offer',
@@ -376,21 +383,22 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [products]);
 
-  // Persistent Maintenance Mode State
+  // Persistent Maintenance / Lockdown System State
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('abed_maintenance_mode');
-    if (saved !== null) {
-      return saved === 'true';
-    }
-    return Boolean(siteSettings.isMaintenanceMode);
+    return isLockdownActive(siteSettings);
   });
 
+  // Real-time synchronization of lockdown state with automatic expiration calculation
   useEffect(() => {
-    if (siteSettings.isMaintenanceMode !== undefined) {
-      setIsMaintenanceMode(Boolean(siteSettings.isMaintenanceMode));
-      localStorage.setItem('abed_maintenance_mode', String(Boolean(siteSettings.isMaintenanceMode)));
-    }
-  }, [siteSettings.isMaintenanceMode]);
+    const active = isLockdownActive(siteSettings);
+    setIsMaintenanceMode(active);
+    localStorage.setItem('abed_maintenance_mode', String(active));
+  }, [
+    siteSettings.isMaintenanceMode, 
+    siteSettings.isLocked, 
+    siteSettings.lockdownEndAt, 
+    siteSettings.lockdownMode
+  ]);
 
   // Automated Secure Visitor Analytics Tracking for Public Pages
   useEffect(() => {
@@ -406,38 +414,188 @@ export default function App() {
     applyThemeColors(activeColors);
   }, [siteSettings.themeColors]);
 
+  // 1. Manual Permanent Lockdown Toggle
   const handleToggleMaintenanceMode = async (newVal: boolean) => {
+    const now = Date.now();
+    const adminEmail = auth.currentUser?.email || 'admin@abedfurniture.com';
+
     setIsMaintenanceMode(newVal);
     localStorage.setItem('abed_maintenance_mode', String(newVal));
+
     const updatedSettings = {
       ...siteSettings,
-      isMaintenanceMode: newVal
+      isMaintenanceMode: newVal,
+      isLocked: newVal,
+      lockdownMode: newVal ? ('manual' as const) : ('off' as const),
+      lockdownStartAt: newVal ? now : null,
+      lockdownEndAt: null,
+      updatedAt: now,
+      updatedBy: adminEmail,
+      lockdownId: newVal ? `manual_${now}` : ''
     };
+
     setSiteSettings(updatedSettings);
 
     try {
-      // 1. Save to Supabase
       try {
         await saveSiteSettingsToSupabase(updatedSettings);
       } catch (sbErr) {
         console.warn('Supabase maintenance toggle note:', sbErr);
       }
 
-      // 2. Save to Firebase
+      await setDoc(doc(db, 'site_settings', 'current'), updatedSettings, { merge: true });
+
       try {
-        await setDoc(doc(db, 'site_settings', 'current'), updatedSettings, { merge: true });
-      } catch (fbErr) {
-        console.warn('Firebase maintenance toggle note:', fbErr);
+        await fetch('/api/admin/lockdown', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: newVal ? 'manual' : 'unlock', adminEmail })
+        });
+      } catch (srvErr) {
+        console.warn('Server toggle note:', srvErr);
       }
 
       if (newVal) {
-        showNotification('মেইনটেন্যান্স মোড অন করা হয়েছে (Website Under Maintenance)!', 'success');
+        showNotification('ম্যানুয়াল পার্মানেন্ট লকডাউন চালু করা হয়েছে (Website Under Maintenance)!', 'success');
       } else {
         showNotification('ওয়েবসাইট পুনরায় লাইভ করা হয়েছে (Website Live)!', 'success');
       }
     } catch (err: any) {
       console.error('Failed to toggle maintenance mode:', err);
       showNotification('মেইনটেন্যান্স মোড সেভ করতে সমস্যা হয়েছে।', 'error');
+    }
+  };
+
+  // 2. Scheduled Lockdown Activation with selectable duration
+  const handleScheduleLockdown = async (durationValue: string) => {
+    const opt = LOCKDOWN_DURATIONS.find(d => d.value === durationValue) || LOCKDOWN_DURATIONS[1];
+    const now = Date.now();
+    const endAt = now + opt.ms;
+    const lockdownId = `lock_${now}_${Math.random().toString(36).substring(2, 7)}`;
+    const adminEmail = auth.currentUser?.email || 'admin@abedfurniture.com';
+
+    setIsMaintenanceMode(true);
+    localStorage.setItem('abed_maintenance_mode', 'true');
+
+    const updatedSettings = {
+      ...siteSettings,
+      isMaintenanceMode: true,
+      isLocked: true,
+      lockdownMode: 'scheduled' as const,
+      lockdownDuration: opt.value,
+      lockdownStartAt: now,
+      lockdownEndAt: endAt,
+      updatedAt: now,
+      updatedBy: adminEmail,
+      lockdownId
+    };
+
+    setSiteSettings(updatedSettings);
+
+    try {
+      try {
+        await saveSiteSettingsToSupabase(updatedSettings);
+      } catch (sbErr) {
+        console.warn('Supabase scheduled lockdown note:', sbErr);
+      }
+
+      await setDoc(doc(db, 'site_settings', 'current'), updatedSettings, { merge: true });
+
+      try {
+        await fetch('/api/admin/lockdown', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'schedule',
+            durationMs: opt.ms,
+            durationValue: opt.value,
+            lockdownId,
+            adminEmail
+          })
+        });
+      } catch (srvErr) {
+        console.warn('Server lockdown endpoint note:', srvErr);
+      }
+
+      showNotification(`লকডাউন সফলভাবে নির্ধারিত হয়েছে (${opt.label})! নির্ধারিত সময়ে স্বয়ংক্রিয়ভাবে খুলে যাবে।`, 'success');
+    } catch (err: any) {
+      console.error('Error scheduling lockdown:', err);
+      showNotification('লকডাউন সেট করতে সমস্যা হয়েছে।', 'error');
+    }
+  };
+
+  // 3. Cancel Scheduled Lockdown & Unlock Immediately
+  const handleCancelScheduledLockdown = async () => {
+    const now = Date.now();
+    const adminEmail = auth.currentUser?.email || 'admin@abedfurniture.com';
+
+    setIsMaintenanceMode(false);
+    localStorage.setItem('abed_maintenance_mode', 'false');
+
+    const updatedSettings = {
+      ...siteSettings,
+      isMaintenanceMode: false,
+      isLocked: false,
+      lockdownMode: 'off' as const,
+      lockdownDuration: '',
+      lockdownStartAt: null,
+      lockdownEndAt: null,
+      updatedAt: now,
+      updatedBy: adminEmail,
+      lockdownId: ''
+    };
+
+    setSiteSettings(updatedSettings);
+
+    try {
+      try {
+        await saveSiteSettingsToSupabase(updatedSettings);
+      } catch (sbErr) {
+        console.warn('Supabase cancel lockdown note:', sbErr);
+      }
+
+      await setDoc(doc(db, 'site_settings', 'current'), updatedSettings, { merge: true });
+
+      try {
+        await fetch('/api/admin/lockdown', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'unlock', adminEmail })
+        });
+      } catch (srvErr) {
+        console.warn('Server unlock note:', srvErr);
+      }
+
+      showNotification('লকডাউন বাতিল করা হয়েছে এবং ওয়েবসাইট অবিলম্বে লাইভ করা হয়েছে!', 'success');
+    } catch (err: any) {
+      console.error('Error cancelling lockdown:', err);
+      showNotification('লকডাউন বাতিল করতে সমস্যা হয়েছে।', 'error');
+    }
+  };
+
+  // 4. Automatic Expiration Callback when countdown hits 0
+  const handleLockdownAutoExpire = async () => {
+    if (siteSettings.lockdownEndAt && Date.now() >= siteSettings.lockdownEndAt) {
+      console.log('[Lockdown System] Scheduled duration reached. Automatically unveiling website.');
+      setIsMaintenanceMode(false);
+      localStorage.setItem('abed_maintenance_mode', 'false');
+
+      const updatedSettings = {
+        ...siteSettings,
+        isMaintenanceMode: false,
+        isLocked: false,
+        lockdownMode: 'off' as const,
+        lockdownEndAt: null,
+        updatedAt: Date.now()
+      };
+
+      setSiteSettings(updatedSettings);
+
+      try {
+        await setDoc(doc(db, 'site_settings', 'current'), updatedSettings, { merge: true });
+      } catch (e) {
+        console.info('Auto expire note:', e);
+      }
     }
   };
 
@@ -816,7 +974,7 @@ export default function App() {
 
   // Master Admin Passcode (synchronized with Firestore or local backup)
   const [adminMasterPasscode, setAdminMasterPasscode] = useState<string>(() => {
-    return localStorage.getItem('abed_master_passcode') || 'abed2026';
+    return localStorage.getItem('abed_master_passcode') || '';
   });
 
   // Fetch remote master passcode if configured
@@ -905,9 +1063,10 @@ export default function App() {
     }, 4000);
   };
 
-  // Automatic initial data seeding to Firestore if collections are blank
+  // Automatic initial data seeding to Firestore if collections are blank (restricted to verified admin session)
   const seedFirestoreIfEmpty = async () => {
     try {
+      if (!auth.currentUser) return;
       const snap = await getDocs(collection(db, 'products'));
       if (snap.empty) {
         for (const prod of PRODUCTS) {
@@ -921,7 +1080,7 @@ export default function App() {
     }
   };
 
-  // Secure Admin Login Handler with Rate Limiting & Master Passcode
+  // Secure Admin Login Handler with Rate Limiting & Zero Hardcoded Credentials
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -939,56 +1098,72 @@ export default function App() {
       return;
     }
 
-    // 1. Direct Master Passcode Verification (instant bypass for authorized master key)
-    if (cleanPassword === adminMasterPasscode || cleanPassword === 'abed2026') {
+    // 1. Firebase Authentication with Admin Credentials
+    if (cleanEmail) {
       try {
-        await signInWithEmailAndPassword(auth, 'admin@abedfurniture.com', 'abed2026');
-      } catch (authErr) {
-        console.warn('Auth note:', authErr);
+        await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+        sessionStorage.setItem('abed_admin_logged_in', 'true');
+        setIsAdminUnlocked(true);
+        setShowAdminPanel(true);
+        setPasscodeError(false);
+        setFailedAttempts(0);
+        registerAdminSession(cleanEmail);
+        showNotification('এডমিন হিসেবে সফলভাবে ফায়ারবেসে লগইন হয়েছেন!');
+        seedFirestoreIfEmpty();
+        return;
+      } catch (error: any) {
+        // If email sign-in failed, check if passcode matches remote master passcode
+        if (adminMasterPasscode && cleanPassword === adminMasterPasscode) {
+          sessionStorage.setItem('abed_admin_logged_in', 'true');
+          setIsAdminUnlocked(true);
+          setShowAdminPanel(true);
+          setPasscodeError(false);
+          setFailedAttempts(0);
+          registerAdminSession(cleanEmail || 'litona644@gmail.com');
+          showNotification('মাস্টার পাসকোড যাচাই সফল! এডমিন প্যানেল আনলক হয়েছে।');
+          return;
+        }
+
+        const nextFailures = failedAttempts + 1;
+        setFailedAttempts(nextFailures);
+        setPasscodeError(true);
+
+        if (nextFailures >= 5) {
+          setLockoutSeconds(60);
+          setFailedAttempts(0);
+          showNotification('নিরাপত্তার কারণে ৫ বার ভুল চেষ্টার পর এডমিন লগইন ৬০ সেকেন্ডের জন্য স্থগিত করা হয়েছে!', 'error');
+          return;
+        }
+
+        const errMsg = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found'
+          ? `ভুল ইমেইল বা পাসওয়ার্ড! (অবশিষ্ট সুযোগ: ${5 - nextFailures} বার)`
+          : (error.message || 'লগইন ব্যর্থ হয়েছে। সঠিক তথ্য দিয়ে আবার চেষ্টা করুন।');
+        showNotification(errMsg, 'error');
+        return;
       }
+    }
+
+    // 2. Direct Master Passcode Verification (when logging in via passcode)
+    if (adminMasterPasscode && cleanPassword === adminMasterPasscode) {
       sessionStorage.setItem('abed_admin_logged_in', 'true');
       setIsAdminUnlocked(true);
       setShowAdminPanel(true);
       setPasscodeError(false);
       setFailedAttempts(0);
       registerAdminSession('litona644@gmail.com');
-      showNotification('মাস্টার পাসকোড সফল! এডমিন প্যানেল আনলক হয়েছে।');
-      seedFirestoreIfEmpty();
+      showNotification('মাস্টার পাসকোড যাচাই সফল! এডমিন প্যানেল আনলক হয়েছে।');
       return;
-    }
-
-    // 2. Firebase Authentication Verification
-    if (!cleanEmail) {
-      showNotification('ইমেইল অথবা সঠিক মাস্টার পাসকোড প্রদান করুন।', 'error');
-      return;
-    }
-
-    try {
-      await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
-      sessionStorage.setItem('abed_admin_logged_in', 'true');
-      setIsAdminUnlocked(true);
-      setShowAdminPanel(true);
-      setPasscodeError(false);
-      setFailedAttempts(0);
-      registerAdminSession(cleanEmail);
-      showNotification('এডমিন হিসেবে সফলভাবে ফায়ারবেসে লগইন হয়েছেন!');
-      seedFirestoreIfEmpty();
-    } catch (error: any) {
+    } else {
       const nextFailures = failedAttempts + 1;
       setFailedAttempts(nextFailures);
       setPasscodeError(true);
-
       if (nextFailures >= 5) {
         setLockoutSeconds(60);
         setFailedAttempts(0);
         showNotification('নিরাপত্তার কারণে ৫ বার ভুল চেষ্টার পর এডমিন লগইন ৬০ সেকেন্ডের জন্য স্থগিত করা হয়েছে!', 'error');
         return;
       }
-
-      const errMsg = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found'
-        ? `ভুল ইমেইল বা পাসওয়ার্ড! (অবশিষ্ট সুযোগ: ${5 - nextFailures} বার)`
-        : (error.message || 'লগইন ব্যর্থ হয়েছে। সঠিক তথ্য দিয়ে আবার চেষ্টা করুন।');
-      showNotification(errMsg, 'error');
+      showNotification(`ভুল পাসকোড বা ইমেইল অনুপস্থিত! (অবশিষ্ট সুযোগ: ${5 - nextFailures} বার)`, 'error');
     }
   };
 
@@ -1297,6 +1472,8 @@ export default function App() {
         setAdminNotification={setAdminNotification}
         isMaintenanceMode={isMaintenanceMode}
         onToggleMaintenance={() => handleToggleMaintenanceMode(!isMaintenanceMode)}
+        onScheduleLockdown={handleScheduleLockdown}
+        onCancelScheduledLockdown={handleCancelScheduledLockdown}
         products={products}
         onProductCreated={handleProductCreate}
         onProductUpdated={handleProductUpdate}
@@ -1319,15 +1496,19 @@ export default function App() {
     );
   }
 
-  // Dedicated View for Maintenance Mode (active for public visitors)
-  if (isMaintenanceMode && !isAdminUnlocked) {
+  // Dedicated View for Maintenance / Scheduled Lockdown Mode (active for public visitors)
+  const isEffectiveLocked = isLockdownActive(siteSettings) && !isAdminUnlocked;
+  if (isEffectiveLocked) {
     return (
       <MaintenancePage
         brandNameLeft={siteSettings.brandNameLeft}
         brandNameRight={siteSettings.brandNameRight}
         phone1={siteSettings.phone1}
         showroomAddress={siteSettings.showroomAddress}
+        lockdownEndAt={siteSettings.lockdownEndAt}
+        lockdownMode={siteSettings.lockdownMode || 'manual'}
         onGoToAdmin={() => navigateTo('admin')}
+        onLockdownExpired={handleLockdownAutoExpire}
       />
     );
   }
@@ -2270,7 +2451,7 @@ export default function App() {
                 </h3>
                 
                 <p className="text-[#fffdec] text-sm sm:text-base md:text-[17px] leading-relaxed mt-4 font-bold">
-                  আমাদের ফেসবুক পেজে যুক্ত হয়ে আধুনিক রাজকীয় ফার্নিচার ও আকর্ষণীয় কাস্টম ইন্টেরিয়র ডিজাইনের সব নতুন আপডেট এবং এক্সক্লুসিভ অফারগুলো সরাসরি উপভোগ করুন।
+                  ক্লিক করে সরাসরি ফেসবুকে যুক্ত হয়ে যান
                 </p>
               </div>
 
@@ -2308,7 +2489,7 @@ export default function App() {
                 </h3>
                 
                 <p className="text-[#fffdec] text-sm sm:text-base md:text-[17px] leading-relaxed mt-4 font-bold">
-                  যেকোনো পণ্যের অর্ডার, কাস্টমাইজেশন বা ইন্টেরিয়র ডিজাইনের সাহায্য বা মূল্যের জন্য সরাসরি আমাদের সাথে হোয়াটসঅ্যাপ চ্যাটিং শুরু করুন। আমরা সবসময় প্রস্তুত।
+                  এক ক্লিকে যোগাযোগ করুন আমাদের সাথে
                 </p>
               </div>
 

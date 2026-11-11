@@ -19,7 +19,7 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultConfig.messagingSenderId,
 };
 
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 
@@ -37,21 +37,25 @@ try {
 
 export const db = firestoreInstance;
 
+const TRUSTED_ADMIN_EMAILS = ['litona644@gmail.com', 'admin@abedfurniture.com'];
+
 /**
- * Ensures an active Firebase Auth session so that Firestore security rules allow authorized writes.
+ * Checks whether the currently authenticated Firebase user is an authorized Administrator.
+ */
+export function isUserAdmin(): boolean {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return false;
+  return Boolean(currentUser.email && TRUSTED_ADMIN_EMAILS.includes(currentUser.email.toLowerCase()));
+}
+
+/**
+ * Session verification utility (safe no-op if user is not logged in).
+ * Preserves compatibility without exposing hardcoded credentials or performing unauthorized auto-logins.
  */
 export async function ensureAuthSession(): Promise<void> {
-  if (!auth.currentUser) {
-    try {
-      await signInWithEmailAndPassword(auth, 'admin@abedfurniture.com', 'abed2026');
-    } catch {
-      try {
-        await signInAnonymously(auth);
-      } catch (authErr) {
-        console.warn('Auth session note:', authErr);
-      }
-    }
-  }
+  // Public visitors remain unauthenticated guests with read-only permissions.
+  // Administrative privileges require explicit authentication via the admin login portal.
+  return Promise.resolve();
 }
 
 import { uploadToStorage } from './supabase';

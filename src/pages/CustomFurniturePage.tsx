@@ -18,6 +18,8 @@ import {
   Send
 } from 'lucide-react';
 import { RouteKey } from '../components/SiteHeader';
+import { db } from '../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface CustomFurniturePageProps {
   phone1?: string;
@@ -34,9 +36,47 @@ export const CustomFurniturePage: React.FC<CustomFurniturePageProps> = ({
   const [clientPhone, setClientPhone] = useState('');
   const [customNotes, setCustomNotes] = useState('');
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+
+    const now = Date.now();
+    const requestId = `req_${now}_${Math.random().toString(36).substring(2, 7)}`;
+    const payload = {
+      id: requestId,
+      furnitureType,
+      timberType,
+      customDimensions: customDimensions.trim() || 'শোরুমের সাথে কথা বলে ঠিক করব',
+      clientPhone: clientPhone.trim(),
+      customNotes: customNotes.trim() || 'নাই',
+      createdAt: new Date(now).toISOString(),
+      timestamp: now,
+      status: 'pending'
+    };
+
+    // 1. Persist to Firestore custom_furniture_requests (secure ABAC zero-trust rule)
+    try {
+      if (db) {
+        await setDoc(doc(db, 'custom_furniture_requests', requestId), payload);
+      }
+    } catch (fbErr) {
+      console.warn('Firestore custom request record note:', fbErr);
+    }
+
+    // 2. Submit to backend API / WhatsApp Cloud API proxy
+    try {
+      await fetch('/api/custom-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (apiErr) {
+      console.warn('Backend custom request forward note:', apiErr);
+    }
+
+    // 3. Open WhatsApp Direct Chat with pre-filled details
     const textMsg = `আসসালামু আলাইকুম, আমি কাস্টম ফার্নিচারের অর্ডার সংক্রান্ত তথ্য দিতে চাচ্ছি:
 আসবাবের ধরন: ${furnitureType}
 কাঠের পছন্দ: ${timberType}
@@ -46,6 +86,7 @@ export const CustomFurniturePage: React.FC<CustomFurniturePageProps> = ({
 
     window.open(`https://wa.me/${phone1.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(textMsg)}`, '_blank');
     setFormSubmitted(true);
+    setIsSubmitting(false);
   };
 
   const timbers = [
@@ -336,11 +377,18 @@ export const CustomFurniturePage: React.FC<CustomFurniturePageProps> = ({
 
             <button
               type="submit"
-              className="w-full bg-[#d4a762] hover:bg-[#fdbf5e] text-stone-950 font-black text-xs sm:text-sm py-3.5 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isSubmitting}
+              className="w-full bg-[#d4a762] hover:bg-[#fdbf5e] text-stone-950 font-black text-xs sm:text-sm py-3.5 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
             >
               <Send className="w-4 h-4" />
-              <span>কাস্টম অর্ডারের তথ্য পাঠান (WhatsApp Direct)</span>
+              <span>{isSubmitting ? 'প্রক্রিয়াধীন...' : 'কাস্টম অর্ডারের তথ্য পাঠান (WhatsApp Direct)'}</span>
             </button>
+
+            {formSubmitted && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs text-center font-medium">
+                ✓ আপনার অনুরোধটি সুরক্ষিতভাবে সংরক্ষিত হয়েছে এবং হোয়াটসঅ্যাপে পাঠানো হয়েছে।
+              </div>
+            )}
           </form>
         </section>
 
